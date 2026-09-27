@@ -38,6 +38,7 @@ const GATES := [
 ]
 
 var backdrop: Backdrop
+var props: Props
 var outer_car: Mover
 var lift: Mover
 var _holes: Dictionary = {}  ## level index (0 = deck 1 … 7 = roof) -> Array[Rect2]
@@ -74,6 +75,7 @@ func intro_hint() -> String:
 
 
 func build_level() -> void:
+	props = Props.new(_b)
 	_plan_holes()
 	_decks()
 	_express()
@@ -82,6 +84,8 @@ func build_level() -> void:
 	_roof()
 	_arcology()
 	_traffic_ring()
+	_dress()
+	props.finalize()
 	hazard(Vector3(0, -45, 0), Vector3(1800, 10, 1800))
 	_backdrop()
 	_course()
@@ -287,9 +291,8 @@ func _edges(i: int, y: float) -> void:
 func _rail(a: Vector3, b: Vector3) -> void:
 	if (b - a).x < 0.05 or (b - a).z < 0.05:
 		return
-	_b.block(a, b, T.DARK)
-	var top := Vector3((a.x + b.x) * 0.5, b.y + 0.02, (a.z + b.z) * 0.5)
-	_b.deco(top, Vector3(b.x - a.x, 0.03, b.z - a.z), T.LIGHT, Vector3.ZERO, Color(0.35, 0.4, 0.45))
+	_b.collider((a + b) * 0.5, b - a, T.DARK)
+	props.railing(a, b)
 
 
 ## Rail spans along an outer side (as [from, to] along the side's axis).
@@ -424,29 +427,23 @@ func _cover(i: int, y: float, rng: RandomNumberGenerator) -> void:
 						clear = false
 				if not clear:
 					continue
-				var size3 := Vector3(half.x * 2.0, 0, half.y * 2.0)
+				# Collision stays the old box; the visual is a kit model. Models
+				# run along local X, so yaw 90 when the side's axis is Z.
+				var yaw := 0.0 if absf(along.x) > 0.5 else 90.0
+				var base := Vector3(c.x, y, c.y)
+				var h: float = [1.05, 1.2, 2.6][kind]
+				_b.collider(base + Vector3.UP * h * 0.5, Vector3(half.x * 2.0, h, half.y * 2.0), T.DARK)
 				match kind:
 					0:  # low barrier: vault it at speed, crouch behind it
-						_b.block(Vector3(rect.position.x, y, rect.position.y), Vector3(rect.end.x, y + 1.05, rect.end.y), T.DARK)
-						_b.deco(Vector3(c.x, y + 1.08, c.y), size3 + Vector3(0, 0.05, 0), T.LIGHT, Vector3.ZERO, Color(1.0, 0.78, 0.5))
+						props.barrier_model(base, yaw, Vector3(fa, h, fn))
 					1:  # charging pod
-						_b.block(Vector3(rect.position.x, y, rect.position.y), Vector3(rect.end.x, y + 1.2, rect.end.y), T.NEUTRAL)
-						_b.deco(Vector3(c.x, y + 0.7, c.y), size3 + Vector3(0.04, 0.12, 0.04), T.LIGHT, Vector3.ZERO, Color(0.4, 0.9, 1.0))
+						props.charger(base, yaw + 90.0 * rng.randi_range(0, 3))
 					2:  # holo pylon: breaks sightlines, glows
-						_b.block(Vector3(rect.position.x, y, rect.position.y), Vector3(rect.end.x, y + 2.6, rect.end.y), T.METAL)
-						var face := n * (fn * 0.5 + 0.03)
-						var panel := Vector3(fa - 0.3, 1.4, 0.04) if absf(along.x) > 0.5 else Vector3(0.04, 1.4, fa - 0.3)
-						for sgn: float in [1.0, -1.0]:
-							_b.deco(Vector3(c.x + face.x * sgn, y + 1.6, c.y + face.y * sgn), panel, T.LIGHT, Vector3.ZERO, holo[rng.randi_range(0, 2)])
+						props.holo_pylon(base, yaw, Vector3(fa, h, fn), holo[rng.randi_range(0, 2)])
 
 
 func _car_static(pos: Vector3, yaw_deg: float, paint: Color) -> void:
-	var rot := Vector3(0, yaw_deg, 0)
-	_b.collider(pos + Vector3.UP * 0.6, Vector3(2.2, 1.2, 4.6), T.NEUTRAL, rot)
-	var basis := Basis(Vector3.UP, deg_to_rad(yaw_deg))
-	_b.deco(pos + Vector3.UP * 0.62, Vector3(2.2, 0.76, 4.6), T.NEUTRAL, rot, paint)
-	_b.deco(pos + basis * Vector3(0, 1.1, 0.3), Vector3(1.8, 0.2, 2.4), T.DARK, rot, Color(0.08, 0.1, 0.14))
-	_b.deco(pos + Vector3.UP * 0.12, Vector3(1.6, 0.04, 3.8), T.LIGHT, rot, Color(0.4, 0.85, 1.0))
+	props.car(pos, yaw_deg, paint)  # collider 2.2 x 1.2 x 4.6, kit hover car
 
 
 # --------------------------------------------------------------------------- the Express
@@ -543,30 +540,93 @@ func _hover_cars() -> void:
 	# ENEMY: drone patrolling the south face at car height.
 
 
-## A hover car on a mover: one collision box (hovering 0.25 m above its base),
-## plus a canopy and an underglow strip.
+## A hover car on a mover: one collision box (hovering 0.25 m above its base)
+## and the kit hover car model, stretched to the box and painted.
 func _car_on_mover(m: Mover, along_x: bool, paint: Color) -> void:
 	var size := Vector3(5.0, 1.0, 2.6) if along_x else Vector3(2.6, 1.0, 5.0)
 	m.set_meta(&"car", true)
-	_b.attach_box(m, Vector3(0, 0.75, 0), size, T.NEUTRAL)
-	for c in m.get_children():
-		if c is MeshInstance3D:
-			(c as MeshInstance3D).material_override = _paint_mat(paint)
-	_b.attach_deco(m, Vector3(0, 1.32, 0), Vector3(size.x * 0.55, 0.14, size.z * 0.55), T.DARK)
-	_b.attach_deco(m, Vector3(0, 0.2, 0), Vector3(size.x * 0.8, 0.05, size.z * 0.8), T.GRAPPLE)
+	_b.attach_box(m, Vector3(0, 0.75, 0), size, T.NEUTRAL, Vector3.ZERO, false)
+	# The model is 2.2 wide x 4.6 long along local Z.
+	var basis := Basis(Vector3.UP, PI * 0.5 if along_x else 0.0).scaled_local(Vector3(2.6 / 2.2, 1.0, 5.0 / 4.6))
+	var car := _b.model(m, Props.KIT["hovercar"], Transform3D(basis, Vector3.ZERO))
+	Props.paint_node(car, paint)
 
 
-var _paint_mats: Dictionary = {}
+# --------------------------------------------------------------------------- dressing
 
-
-func _paint_mat(c: Color) -> StandardMaterial3D:
-	if not _paint_mats.has(c):
-		var m := StandardMaterial3D.new()
-		m.albedo_color = c
-		m.metallic = 0.6
-		m.roughness = 0.25
-		_paint_mats[c] = m
-	return _paint_mats[c]
+## The Ascent / Ghostrunner layer (ART_DIRECTION §1): dense dressing above
+## and around the route, never on it. Ducts and cables hang from the deck
+## ceilings above the parked-car bays, glyph signs sit on the columns' void
+## faces, neon blade signs hang off the outer slab edges over the drop, and
+## machinery and banners cover the arcology face. All visual only (dressing
+## sits above jump height or flush on walls) except the dock bollards.
+func _dress() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	var sides := [Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0), Vector2(0, -1)]
+	for i in 7:
+		var y := _level_y(i)
+		var ceiling := y + DECK - 0.4
+		for side in 4:
+			var n: Vector2 = sides[side]
+			var along := Vector2(-n.y, n.x)
+			var yaw := rad_to_deg(atan2(-along.y, along.x))  # local +X runs along the side
+			# Ceiling ducts over the outer car bays, broken where a hole is.
+			var t := -26.0
+			while t < 26.0:
+				var c := n * 31.5 + along * (t + 1.0)
+				var r := Rect2(c - Vector2(1.5, 1.5), Vector2(3, 3))
+				if not _blocked(r, i + 1) and not _blocked(r, i):
+					props.duct(Vector3(c.x, ceiling, c.y) - Vector3(along.x, 0, along.y), yaw, 1)
+				t += 2.0
+			# Cable bundles sagging between the ceiling points above the columns.
+			for t0: float in [-28.0, 0.0]:
+				var a := n * 26.5 + along * t0
+				var b := n * 26.5 + along * (t0 + 14.0)
+				props.cable(Vector3(a.x, ceiling - 0.05, a.y), Vector3(b.x, ceiling - 0.05, b.y))
+			# Glyph signs on the columns' faces toward the void.
+			for tc: float in [-28.0, -14.0, 0.0, 14.0]:
+				var p := n * 28.0 + along * tc
+				var col := Rect2(p - Vector2(0.6, 0.6), Vector2(1.2, 1.2))
+				if _blocked(col.grow(0.8), i) or _blocked(col.grow(0.8), i + 1):
+					continue
+				var face := p - n * 0.6
+				props.glyph_panel(Vector3(face.x, y + 3.6, face.y), rad_to_deg(atan2(-n.x, -n.y)), Props.NEON[rng.randi_range(0, 3)], 0.9)
+			# Neon blade signs hanging off the outer slab edges (not the north,
+			# which is the arcology), clear of the car docks.
+			if side < 3:
+				for tb: float in [-22.0, 22.0]:
+					var clear := true
+					for d: Array in _dock_defs():
+						if d[0] == i and d[1] == side and absf(d[2] - tb) < 5.0:
+							clear = false
+					if not clear:
+						continue
+					var m := n * (H + 0.05) + along * tb
+					props.sign_blade(Vector3(m.x, y + 3.2, m.y), rad_to_deg(atan2(-n.y, n.x)), Props.NEON[(i + side) % 3], 0.9)
+		# The arcology face behind each deck: a pipe run high on the wall and
+		# machinery above wall-run height (flush, visual only).
+		props.pipe_run(Vector3(-36, y + 4.7, -37.65), 0.0, 36)
+		for x: float in [-24.0, -6.0, 12.0, 30.0]:
+			var kind := rng.randi_range(0, 2)
+			var p := Vector3(x + rng.randf_range(-2.0, 2.0), y + 3.9, -38.0)
+			match kind:
+				0: props.vent_grille(p, 0.0)
+				1: props.fan(p, 0.0)
+				2: props.junction_box(p + Vector3.UP * 0.2, 0.0)
+	# Arcology face above the roof and beside the garage: giant banners and
+	# blade signs, the Ghostrunner megastructure look.
+	for s: Array in [[Vector3(-70, 58, -37.8), 3.2], [Vector3(66, 24, -37.8), 3.6], [Vector3(-62, 12, -37.8), 2.6],
+			[Vector3(0, 70, -37.8), 4.0], [Vector3(84, 66, -37.8), 3.0], [Vector3(-96, 36, -37.8), 3.4]]:
+		props.sign_banner(s[0], 0.0, Props.NEON[rng.randi_range(0, 3)], s[1])
+	for p: Vector3 in [Vector3(-48, 30, -37.8), Vector3(52, 52, -37.8), Vector3(-44, 76, -37.8), Vector3(46, 90, -37.8)]:
+		props.sign_blade(p, -90.0, Props.NEON[rng.randi_range(0, 2)], 3.2)
+	# Dock edge bollards (body height on a walkable dock: they collide).
+	for x0: float in [-43.0, 43.0]:
+		for dx: float in [-4.0, -2.0, 2.0, 4.0]:
+			var p := Vector3(x0 + dx, 0, 47.6)
+			props.bollard(p)
+			_b.collider(p + Vector3.UP * 0.45, Vector3(0.3, 0.9, 0.3), T.NEUTRAL)
 
 
 # --------------------------------------------------------------------------- roof

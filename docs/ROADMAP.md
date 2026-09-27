@@ -32,6 +32,7 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 - [ ] Third-person rifle on the avatar
 - [x] Rooftops Run course: timer, checkpoints, finish, par time, splits vs best, medals, saved best (`Course`, reusable for M6/Race)
 - [x] Blender props: AC units, water tower, vents (MultiMesh); crane lattice + billboard frame (models on the movers, box collision unchanged)
+- [x] **AAA art pass, city kit** (`docs/ART_DIRECTION.md` §4): 20 detailed kit models (hover car, railings, cover, signs, pipes, machinery, street furniture) replace the box props in SPIRAL and Rooftops, plus a dressing layer in both. Structural trims, a training-dummy robot, the museum kit and the level-geometry chamfer/shader pass are still to do.
 - [x] Windows export (untested on real hardware yet)
 - [x] **SPIRAL** (2026-09-26): night sky garage at 300 m, the Express helix slide lane, Spiral Run course, backdrop scale toolkit (`Backdrop`), `tests/spiral_tests`
 - [x] **PENDULUM HALL** first pass (2026-09-26): sky museum, 90 m pendulum slingshot (~29 m/s), Pendulum Run course, `tests/pendulum_tests`. Needs Liam's play and a dressing pass.
