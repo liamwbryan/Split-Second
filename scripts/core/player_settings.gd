@@ -18,6 +18,21 @@ extends Resource
 @export_range(0.0, 1.0, 0.01) var pad_edge_boost_ramp: float = 0.35
 @export_range(0.0, 0.4, 0.01) var pad_move_deadzone: float = 0.15
 
+## Gamepad aim assist strength (scales slowdown and rotational below).
+enum AimAssistPreset { OFF, LOW, STANDARD, STRONG }
+const AIM_ASSIST_SCALE: Array[float] = [0.0, 0.55, 1.0, 1.4]
+
+@export_group("Aim Assist (gamepad only)")
+@export var aim_assist: AimAssistPreset = AimAssistPreset.STANDARD
+@export_range(0.0, 0.9, 0.01) var aim_assist_slowdown: float = 0.4  ## stick look slows by this much on target
+@export_range(0.0, 1.0, 0.01) var aim_assist_rotational: float = 0.5  ## share of the target's motion (relative to you) the view follows
+@export_range(0.5, 15.0, 0.1) var aim_assist_cone: float = 5.0  ## degrees around the target's chest
+@export_range(0.0, 2.0, 0.05) var aim_assist_target_radius: float = 0.7  ## m: widens the cone for close targets
+@export_range(5.0, 150.0, 1.0) var aim_assist_range: float = 60.0  ## m
+@export_range(5.0, 200.0, 1.0) var aim_assist_max_rate: float = 60.0  ## deg/s cap on the rotational pull
+@export_range(0.0, 1.0, 0.01) var aim_assist_hip_mult: float = 0.7  ## hip-fire strength (ADS gets the full amount)
+@export_range(0.05, 1.0, 0.01) var aim_assist_stick_full: float = 0.3  ## curved look-stick deflection for full rotational
+
 @export_group("Comfort")
 @export_range(60.0, 110.0, 1.0) var fov: float = 80.0  ## vertical degrees (~111 horizontal at 16:9)
 @export_range(0.0, 1.5, 0.05) var camera_tilt_scale: float = 1.0

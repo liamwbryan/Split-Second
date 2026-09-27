@@ -92,6 +92,7 @@ Surfaces carry tags, and a shared material colors them automatically:
 - **Movement synergy:** hip-fire spread tightens while sliding and wall-running, and ADS is fast. You're never penalized for moving.
 - **Feedback stack:** hitmarkers (body vs head), distinct kill confirm sound, a 1–3 frame freeze on kills, enemy flinch and ragdoll, and short screen shake only when you fire (never when you're hit).
 - **Aim assist (gamepad only):** slowdown near targets plus light rotational assist while you're moving. It can be tuned per player and turned off. Split-screen FFA uses a lighter preset.
+  - *Built (2026-09-26, `AimAssist`):* per player, in the tuning panel's Player tab. The preset (Off / Low / Standard / Strong) scales the raw values. Slowdown scales only the look stick's share of the turn, so mouse aim is never touched. Rotational follows a share of the target's angular motion relative to you (its strafe or yours), but only while the look stick is in use, so an idle stick never aims for you. Both are full strength inside half the cone (5°, widened for close targets) and fade to zero at its edge. Hip fire gets 70% of the ADS strength. Targets are anything in the `aim_target` group; a world-only line-of-sight ray on the picked target runs every 3 ticks.
 - **Viewmodel:** sway, bob, and tilt driven by movement state, so the gun visibly reacts to wall-runs and slides.
 
 ### Initial roster (original designs, inspired by the reference)

@@ -2,6 +2,7 @@
 # Headless movement/weapon regression tests.
 #   tests/run_tests.sh              run everything
 #   tests/run_tests.sh wallrun      run one test by name
+#   tests/run_tests.sh aim          aim assist tests only (aim:slowdown_near_target for one)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -14,6 +15,16 @@ perl -e 'alarm shift; exec @ARGV' 600 \
 	"$GODOT" --headless --path . --fixed-fps 120 res://tests/movement_tests.tscn ${ARGS[@]+"${ARGS[@]}"} 2>&1 \
 	| grep -vE "^\s*$|ObjectDB instances|Godot Engine v|at: cleanup|resources still in use"
 status="${PIPESTATUS[0]}"
+# Gamepad aim assist (scripted stick/mouse look against dummies).
+if [[ $# -eq 0 || "$1" == aim* ]]; then
+	AIM_ARGS=()
+	[[ $# -gt 0 && "$1" != "aim" ]] && AIM_ARGS=(++ "--only=${1#aim:}")
+	perl -e 'alarm shift; exec @ARGV' 180 \
+		"$GODOT" --headless --path . --fixed-fps 120 res://tests/aim_assist_tests.tscn ${AIM_ARGS[@]+"${AIM_ARGS[@]}"} 2>&1 \
+		| grep -vE "^\s*$|ObjectDB instances|Godot Engine v|at: cleanup|at: clear|resources still in use"
+	aim="${PIPESTATUS[0]}"
+	[[ "$aim" != 0 && "$status" == 0 ]] && status="$aim"
+fi
 # Level placement lint (dummies inside walls, floating, spawns in geometry).
 perl -e 'alarm shift; exec @ARGV' 120 "$GODOT" --headless --path . -s res://tests/level_lint.gd 2>&1 \
 	| grep -E "FAIL|level lint|SCRIPT ERROR|Parse Error" || true

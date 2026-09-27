@@ -123,6 +123,8 @@ func _build_tab(section: String, res: Resource) -> void:
 			pending_header = ""
 		if prop.type == TYPE_BOOL:
 			list.add_child(_toggle_row(res, prop))
+		elif prop.hint == PROPERTY_HINT_ENUM:
+			list.add_child(_enum_row(res, prop))
 		else:
 			list.add_child(_slider_row(res, prop))
 
@@ -157,6 +159,29 @@ func _slider_row(res: Resource, prop: Dictionary) -> Control:
 		value_label.text = _fmt(v, prop.type))
 	row.add_child(slider)
 	row.add_child(value_label)
+	return row
+
+
+## Dropdown for enum settings (hint_string "Name:0,Other:1,...").
+func _enum_row(res: Resource, prop: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	var name_label := Label.new()
+	name_label.text = String(prop.name).replace("_", " ")
+	name_label.custom_minimum_size.x = 200 * ui_scale
+	name_label.add_theme_font_size_override(&"font_size", int(13 * ui_scale))
+	row.add_child(name_label)
+	var pick := OptionButton.new()
+	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pick.add_theme_font_size_override(&"font_size", int(13 * ui_scale))
+	var next_value := 0
+	for entry in String(prop.hint_string).split(","):
+		var parts := entry.split(":")
+		var value := int(parts[1]) if parts.size() > 1 else next_value
+		pick.add_item(parts[0].capitalize(), value)
+		next_value = value + 1
+	pick.select(pick.get_item_index(res.get(prop.name)))
+	pick.item_selected.connect(func(i: int) -> void: res.set(prop.name, pick.get_item_id(i)))
+	row.add_child(pick)
 	return row
 
 
