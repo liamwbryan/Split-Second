@@ -45,6 +45,8 @@ elif mode == "small":  # handheld gear (grapple gun)
     target, dist, lens = Vector((0, 0.07, 0.02)), 0.55, 60
 elif mode == "wide":  # billboard frame, crane mast
     target, dist, lens = Vector((0, 0, 3.0)), 22.0, 35
+elif mode == "kit":  # city kit props (car, crates, kiosk) at eye height
+    target, dist, lens = Vector((0, 0, 0.7)), 7.5, 40
 elif mode == "crane":  # the whole slewing jib (runs along +Y)
     target, dist, lens = Vector((0, 13.0, 1.5)), 48.0, 35
 else:

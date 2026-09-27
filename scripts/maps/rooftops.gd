@@ -38,6 +38,7 @@ func build_level() -> void:
 	_sw_residential()
 	_perimeter()
 	_fill()
+	_dress()
 	props.skyline(Vector3.ZERO, 110.0, 420.0, 180, 7)
 	props.finalize()
 	_course()
@@ -378,6 +379,55 @@ func _fill() -> void:
 
 
 # --------------------------------------------------------------------------- perimeter
+
+## The city-kit dressing layer (ART_DIRECTION §1): a day map, so it leans
+## Mirror's Edge (neon present but secondary). Signs and pipes sit high on
+## facades, above wall-run height; cables cross the streets overhead; benches
+## and bollards line the sidewalks. Nothing on a route surface.
+func _dress() -> void:
+	var neon := Props.NEON
+	# Blade signs on facades facing the streets (mount on the wall, blade out).
+	props.sign_blade(Vector3(-8, 9.5, -14), 0.0, neon[0])       # office east face
+	props.sign_blade(Vector3(-8, 10.5, -36), 0.0, neon[1])
+	props.sign_blade(Vector3(38, 7.5, -20), 180.0, neon[2])     # site office west face
+	props.sign_blade(Vector3(8, 9.0, 52), 180.0, neon[1])       # F building street face
+	props.sign_blade(Vector3(22, 13.0, 18), 180.0, neon[0])     # D west face
+	# Banners high on big facades.
+	props.sign_banner(Vector3(-8, 12.8, -24), 90.0, neon[3], 1.4)
+	props.sign_banner(Vector3(34, 18.2, 14), 180.0, neon[1], 1.6)
+	props.sign_banner(Vector3(-56, 24.5, -40), 0.0, neon[0], 1.0)  # tall wing south face, clear of the lift
+	# Pipe runs high on the office and D facades (above the wall-run band).
+	props.pipe_run(Vector3(-7.65, 6.6, -10), 90.0, 16)   # yaw 90: runs toward -z, wall behind (-x)
+	props.pipe_run(Vector3(46.35, 7.0, 42), 90.0, 13)
+	props.pipe_run(Vector3(-40, 5.5, -7.65), 0.0, 15)
+	# Wall machinery on facades and roof bulkheads (flush, visual only).
+	for m: Array in [
+		["vent_grille", Vector3(-8, 4.6, -18), 90.0], ["fan", Vector3(-8, 4.8, -30), 90.0],
+		["junction_box", Vector3(8, 4.2, 46), -90.0], ["vent_grille", Vector3(22, 5.0, 26), -90.0],
+		["fan", Vector3(38, 5.2, -14), -90.0], ["junction_box", Vector3(-28, 17.5, -28), 0.0],
+		["vent_grille", Vector3(-40, 4.6, 8), 180.0], ["fan", Vector3(-20, 5.0, 8), 180.0],
+		["junction_box", Vector3(-24, 17.3, 50), 0.0], ["vent_grille", Vector3(46, 15.0, 30), 90.0],
+	]:
+		match m[0]:
+			"vent_grille": props.vent_grille(m[1], m[2])
+			"fan": props.fan(m[1], m[2])
+			"junction_box": props.junction_box(m[1], m[2])
+	# Overhead cables across the streets.
+	props.cable(Vector3(-8, 12.5, -26), Vector3(12, 12.0, -26))
+	props.cable(Vector3(-24, 11.5, -8), Vector3(-24, 10.5, 8))
+	props.cable(Vector3(-8, 11.5, 39), Vector3(8, 11.0, 39))
+	props.cable(Vector3(-40, 10.5, -8), Vector3(-40, 9.5, 8))
+	props.cable(Vector3(38, 11.0, -12), Vector3(36, 11.5, 8))
+	# Benches (knee-high: they collide) and crossroads bollards.
+	for bn: Array in [[Vector3(7.2, 0, -26), -90.0], [Vector3(-7.2, 0, 40), 90.0], [Vector3(15, 0, 7.2), 180.0], [Vector3(-30, 0, -7.2), 0.0]]:
+		props.bench(bn[0], bn[1])
+		_b.collider(bn[0] + Vector3.UP * 0.45, Vector3(2.0, 0.9, 0.7), T.NEUTRAL, Vector3(0, bn[1], 0))
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			var p := Vector3(sx * 7.0, 0, sz * 7.0)
+			props.bollard(p)
+			_b.collider(p + Vector3.UP * 0.45, Vector3(0.3, 0.9, 0.3), T.NEUTRAL)
+
 
 func _perimeter() -> void:
 	var b := _b
