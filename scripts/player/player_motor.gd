@@ -15,6 +15,10 @@ signal slide_started
 signal grapple_attached(point: Vector3)
 signal grapple_released
 signal grapple_missed
+## Momentum prototype feedback: a chained move (meter after it) and a speed
+## boost it paid out (m/s). Presentation only; the motor never listens.
+signal momentum_linked(flow: float)
+signal momentum_boosted(amount: float)
 
 enum State { GROUND, AIR, SLIDE, WALLRUN, WALLCLIMB, MANTLE, GRAPPLE }
 enum JumpKind { GROUND, DOUBLE, WALL_KICK, CLIMB_KICK, SLIDE_HOP, CLIMB_HOP }
@@ -68,6 +72,10 @@ var wall_point: Vector3 = Vector3.ZERO      ## current wall contact (wall-run / 
 var ledge_point: Vector3 = Vector3.ZERO     ## lip of the ledge being mantled/vaulted
 var ledge_dir: Vector3 = Vector3.FORWARD    ## horizontal direction over the ledge
 var mantle_is_vault: bool = false
+
+## Momentum flow meter 0..1 (prototype, tuning.momentum_enabled). Chained moves
+## fill it; standing around drains it. See docs/MOMENTUM.md.
+var flow: float = 0.0
 
 var _clock: float = 0.0
 var _pre_move_vy: float = 0.0
@@ -140,6 +148,7 @@ func reset_to(_position: Vector3) -> void:
 	grapple_cooldown_left = 0.0
 	_blocked_wall_id = 0
 	_last_climb_wall_id = 0
+	flow = 0.0
 	state = State.AIR
 	state_time = 0.0
 
@@ -156,6 +165,7 @@ func physics_step(delta: float) -> void:
 	if not player.is_on_floor():
 		time_since_ground += delta
 	_update_toggles()
+	_decay_flow(delta)
 
 	match state:
 		State.GROUND: _tick_ground(delta)
@@ -338,7 +348,7 @@ func _tick_wallrun(delta: float) -> void:
 	if along < tuning.wallrun_target_speed and fwd > 0.2:
 		along = move_toward(along, tuning.wallrun_target_speed, tuning.wallrun_accel * delta)
 	elif along > tuning.wallrun_target_speed:
-		along = maxf(tuning.wallrun_target_speed, along - tuning.wallrun_overspeed_decel * delta)
+		along = maxf(tuning.wallrun_target_speed, along - tuning.wallrun_overspeed_decel * (1.0 - _flow_amount() * tuning.momentum_wallrun_keep) * delta)
 	if fwd < -0.3:
 		along = maxf(0.0, along - 12.0 * delta)
 	var g := lerpf(tuning.wallrun_gravity_start, tuning.wallrun_gravity_end, clampf(state_time / tuning.wallrun_gravity_ramp, 0.0, 1.0))
@@ -380,6 +390,7 @@ func _tick_wallclimb(delta: float) -> void:
 		# Climb kick: push straight back off the wall and (optionally) turn 180.
 		var out := wall_normal * tuning.climb_kick_out
 		player.velocity = Vector3(out.x, tuning.climb_kick_up, out.z)
+		_momentum_link(true)
 		_wall_cooldown = tuning.wall_reattach_delay
 		if tuning.climb_kick_auto_turn:
 			player.request_turn_to(wall_normal, tuning.climb_turn_time)
@@ -492,9 +503,17 @@ func _land() -> void:
 	_refresh_on_ground()
 	landed.emit(impact)
 	var speed := _h(player.velocity).length()
-	if _crouch_intent() and speed >= tuning.slide_min_start_speed:
-		# Landing into a slide. Momentum: kept, plus the (diminishing) slide boost.
+	var fall_bonus := _slide_landing_bonus(impact)
+	if _crouch_intent() and speed + fall_bonus >= tuning.slide_min_start_speed and speed > 1.0:
+		# Landing into a slide. Momentum: kept, plus the (diminishing) slide boost,
+		# plus (momentum prototype) part of a hard fall's speed.
 		_enter_slide()
+		if fall_bonus > 0.0:  # after the slide boost, so its cap doesn't eat the bonus
+			var h := _h(player.velocity)
+			h = h.normalized() * (h.length() + fall_bonus)
+			player.velocity = Vector3(h.x, player.velocity.y, h.z)
+			momentum_boosted.emit(fall_bonus)
+		_momentum_link(false)
 		if router.buffered(InputRouter.Action.JUMP, tuning.jump_buffer):
 			router.consume(InputRouter.Action.JUMP)
 			_do_ground_jump(JumpKind.SLIDE_HOP)
@@ -523,6 +542,8 @@ func _do_ground_jump(kind: JumpKind) -> void:
 	jumped_since_ground = true
 	_jump_cut_armed = kind == JumpKind.GROUND
 	_set_state(State.AIR)
+	if kind == JumpKind.SLIDE_HOP:
+		_momentum_link(false)
 	jumped.emit(kind)
 
 
@@ -559,6 +580,7 @@ func _do_wall_kick(wall: Dictionary) -> void:
 	dir = _ensure_away(dir, n, tuning.wallkick_min_out_dot)
 	var out := dir * magnitude
 	player.velocity = Vector3(out.x, tuning.wallkick_up, out.z)
+	_momentum_link(true)
 	_block_wall(wall)
 	_wall_cooldown = tuning.wall_reattach_delay
 	_wall_coyote_left = 0.0
@@ -632,6 +654,7 @@ func _enter_wallrun(wall: Dictionary, tangent: Vector3) -> void:
 	double_jump_ready = true
 	wall_side = _side_of(wall_normal, tangent)
 	_set_state(State.WALLRUN)
+	_momentum_link(false)
 
 
 func _enter_wallclimb(wall: Dictionary) -> void:
@@ -720,6 +743,61 @@ func launch(launch_velocity: Vector3) -> void:
 
 func _end_grapple() -> void:
 	_set_state(State.GROUND if player.is_on_floor() else State.AIR)
+	if state == State.AIR:
+		_momentum_link(true)
+
+
+# --------------------------------------------------------------------------- momentum (prototype)
+
+## Current meter, or 0 while the prototype is off.
+func _flow_amount() -> float:
+	return flow if tuning.momentum_enabled else 0.0
+
+
+## Soft speed cap, raised by the flow meter.
+func soft_speed_cap() -> float:
+	return tuning.soft_speed_cap + _flow_amount() * tuning.momentum_cap_bonus
+
+
+## A chained move: fills the meter; `kick` moves also push you faster (scaled by
+## the meter, never past the raised soft cap).
+func _momentum_link(kick: bool) -> void:
+	if not tuning.momentum_enabled:
+		return
+	flow = minf(1.0, flow + tuning.momentum_link_gain)
+	momentum_linked.emit(flow)
+	if not kick:
+		return
+	var v := player.velocity
+	var h := _h(v)
+	var speed := h.length()
+	if speed < 0.5:
+		return
+	var boosted := minf(speed + tuning.momentum_kick_speed * flow, maxf(speed, soft_speed_cap()))
+	h = h / speed * boosted
+	player.velocity = Vector3(h.x, v.y, h.z)
+	if boosted - speed > 0.3:
+		momentum_boosted.emit(boosted - speed)
+
+
+## Speed a slide landing gains from a fall this fast (0 for ordinary hops).
+func _slide_landing_bonus(impact: float) -> float:
+	if not tuning.momentum_enabled:
+		return 0.0
+	return minf((impact - tuning.momentum_land_min_impact) * tuning.momentum_land_convert, tuning.momentum_land_max) if impact > tuning.momentum_land_min_impact else 0.0
+
+
+## Chains live in the air and on walls; a little time on foot drains them.
+func _decay_flow(delta: float) -> void:
+	if not tuning.momentum_enabled:
+		flow = 0.0
+		return
+	match state:
+		State.GROUND:
+			if state_time > tuning.momentum_ground_grace:
+				flow = maxf(0.0, flow - tuning.momentum_ground_decay * delta)
+		State.AIR:
+			flow = maxf(0.0, flow - tuning.momentum_air_decay * delta)
 
 
 # --------------------------------------------------------------------------- movement helpers
@@ -783,9 +861,10 @@ func _apply_speed_caps(delta: float) -> void:
 	var v := player.velocity
 	var h := _h(v)
 	var speed := h.length()
-	if speed <= tuning.soft_speed_cap:
+	var cap := soft_speed_cap()
+	if speed <= cap:
 		return
-	var capped := minf(maxf(tuning.soft_speed_cap, speed - tuning.soft_cap_decay * delta), tuning.hard_speed_cap)
+	var capped := minf(maxf(cap, speed - tuning.soft_cap_decay * delta), tuning.hard_speed_cap)
 	h = h / speed * capped
 	player.velocity = Vector3(h.x, v.y, h.z)
 
