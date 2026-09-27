@@ -10,8 +10,8 @@ extends RefCounted
 
 ## Route tags (RUN/GRAPPLE/BOOST/HAZARD) are painted, saturated surfaces.
 ## NEUTRAL/DARK are concrete; FACADE is a building with windows; ASPHALT and
-## METAL are dressing.
-enum Tag { NEUTRAL, DARK, RUN, GRAPPLE, BOOST, HAZARD, FACADE, ASPHALT, METAL }
+## METAL are dressing. LIGHT is a white emissive light strip (dressing only).
+enum Tag { NEUTRAL, DARK, RUN, GRAPPLE, BOOST, HAZARD, FACADE, ASPHALT, METAL, LIGHT }
 enum Kind { PAINT, CONCRETE, FACADE, ASPHALT, METAL }
 
 const COLORS := {
@@ -24,12 +24,13 @@ const COLORS := {
 	Tag.FACADE: Color(0.88, 0.87, 0.84),
 	Tag.ASPHALT: Color(0.52, 0.52, 0.51),
 	Tag.METAL: Color(0.42, 0.45, 0.48),
+	Tag.LIGHT: Color(0.92, 0.96, 1.0),
 }
 const KINDS := {
 	Tag.NEUTRAL: Kind.CONCRETE, Tag.DARK: Kind.CONCRETE, Tag.FACADE: Kind.FACADE,
 	Tag.ASPHALT: Kind.ASPHALT, Tag.METAL: Kind.METAL,
 }
-const GLOW := {Tag.RUN: 0.06, Tag.GRAPPLE: 0.25, Tag.BOOST: 0.18, Tag.HAZARD: 0.12}  # COLOR.a (x2 in shader)
+const GLOW := {Tag.RUN: 0.06, Tag.GRAPPLE: 0.25, Tag.BOOST: 0.18, Tag.HAZARD: 0.12, Tag.LIGHT: 1.0}  # COLOR.a (x2 in shader)
 const CHUNK := 48.0
 
 var root: Node3D
@@ -71,9 +72,10 @@ func collider(center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, rotation_d
 
 
 ## Visual-only box (no collision): lane markings, trim, dressing.
-func deco(center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, rotation_deg: Vector3 = Vector3.ZERO) -> void:
+## `tint` overrides the tag color (e.g. a colored LIGHT strip).
+func deco(center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, rotation_deg: Vector3 = Vector3.ZERO, tint := Color(0, 0, 0, 0)) -> void:
 	var basis := Basis.from_euler(rotation_deg * (PI / 180.0))
-	_add_static_visual(Transform3D(basis, center), size, tag, Color(0, 0, 0, 0))
+	_add_static_visual(Transform3D(basis, center), size, tag, tint)
 
 
 ## A ramp whose top surface runs along the center line from `from` to `to`.
@@ -84,6 +86,86 @@ func ramp(from: Vector3, to: Vector3, width: float, tag: Tag = Tag.NEUTRAL, thic
 	var basis := Basis(r, u, -f)
 	var center := (from + to) * 0.5 - u * thickness * 0.5
 	return _make_box(Transform3D(basis, center), Vector3(width, thickness, from.distance_to(to)), tag, Color(0, 0, 0, 0))
+
+
+## A smooth helical ramp (a spiral slide lane) around the vertical axis
+## through `center`. Its top is a helicoid (every radial line is level), so a
+## slide carries through the curve with no seams: box ramps can't do this,
+## because each flat segment tilts sideways at its ends and the joins leave
+## 10–25 cm lips. Angles are degrees from +x toward +z; the lane starts at
+## `start_deg` at height `y_top` and drops `drop` over `sweep_deg` (either
+## sign). One trimesh collider for the whole lane, visuals merged like blocks.
+## `collide = false` makes it dressing only (e.g. a light strip along a lane).
+func helix_ramp(center: Vector3, r_in: float, r_out: float, y_top: float, start_deg: float, sweep_deg: float, drop: float, tag: Tag = Tag.NEUTRAL, thickness: float = 0.6, step_deg: float = 2.0, tint := Color(0, 0, 0, 0), collide: bool = true) -> StaticBody3D:
+	var n := maxi(2, ceili(absf(sweep_deg) / step_deg))
+	var top_in: PackedVector3Array = []
+	var top_out: PackedVector3Array = []
+	for i in n + 1:
+		var f := float(i) / n
+		var a := deg_to_rad(start_deg + sweep_deg * f)
+		var dir := Vector3(cos(a), 0.0, sin(a))
+		var y := y_top - drop * f
+		top_in.append(center + dir * r_in + Vector3.UP * y)
+		top_out.append(center + dir * r_out + Vector3.UP * y)
+	var down := Vector3.DOWN * thickness
+	var faces: PackedVector3Array = []
+	var color := _color_for(tag, tint)
+	var mid := center + Vector3.UP * (y_top - drop * 0.5)
+	var st := _batch_for(KINDS.get(tag, Kind.PAINT), mid)
+	var uv2 := _uv2_for(tag, mid)
+	for i in n:
+		var a0 := top_in[i]
+		var a1 := top_in[i + 1]
+		var b0 := top_out[i]
+		var b1 := top_out[i + 1]
+		var outward := ((b0 + b1) - (a0 + a1)).normalized()
+		_quad(st, faces, a0, b0, b1, a1, Vector3.UP, color, uv2)                            # top
+		_quad(st, faces, a0 + down, b0 + down, b1 + down, a1 + down, Vector3.DOWN, color, uv2)  # underside
+		_quad(st, faces, b0, b1, b1 + down, b0 + down, outward, color, uv2)                 # outer edge
+		_quad(st, faces, a0, a1, a1 + down, a0 + down, -outward, color, uv2)                # inner edge
+	for k: int in [0, n]:  # end caps
+		var i0 := top_in[k]
+		var o0 := top_out[k]
+		var along := (top_in[mini(k + 1, n)] - top_in[maxi(k - 1, 0)]) * (-1.0 if k == 0 else 1.0)
+		_quad(st, faces, i0, o0, o0 + down, i0 + down, along, color, uv2)
+	if not collide:
+		return null
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var tri := ConcavePolygonShape3D.new()
+	tri.backface_collision = true
+	tri.set_faces(faces)
+	shape.shape = tri
+	body.add_child(shape)
+	root.add_child(body)
+	body.set_meta(&"surface", tag)
+	return body
+
+
+## Appends a quad (two triangles) facing `facing` to a visual batch and to a
+## collision face list. Winding is chosen per triangle from `facing`.
+static func _quad(st: SurfaceTool, faces: PackedVector3Array, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, facing: Vector3, color: Color, uv2: Vector2) -> void:
+	for t: Array in [[p0, p1, p2], [p0, p2, p3]]:
+		var a: Vector3 = t[0]
+		var b: Vector3 = t[1]
+		var c: Vector3 = t[2]
+		var n := (b - a).cross(c - a)
+		if n.length_squared() < 1e-10:
+			continue
+		if n.dot(facing) > 0.0:  # Godot front faces are clockwise seen from the front
+			var tmp := b
+			b = c
+			c = tmp
+			n = -n
+		var wn := -n.normalized()
+		for v: Vector3 in [a, b, c]:
+			st.set_normal(wn)
+			st.set_color(color)
+			st.set_uv2(uv2)
+			st.add_vertex(v)
+			faces.append(v)
 
 
 ## A Mover whose origin is the pivot. Add shapes with attach_box().
@@ -217,8 +299,11 @@ func _make_box(xform: Transform3D, size: Vector3, tag: Tag, tint: Color) -> Stat
 
 
 func _add_static_visual(xform: Transform3D, size: Vector3, tag: Tag, tint: Color) -> void:
-	var kind: int = KINDS.get(tag, Kind.PAINT)
-	var c := xform.origin
+	var st := _batch_for(KINDS.get(tag, Kind.PAINT), xform.origin)
+	_append_box(st, xform, size, _color_for(tag, tint), _uv2_for(tag, xform.origin))
+
+
+func _batch_for(kind: int, c: Vector3) -> SurfaceTool:
 	var key := "%d|%d|%d" % [kind, floori(c.x / CHUNK), floori(c.z / CHUNK)]
 	var st: SurfaceTool = _batches.get(key)
 	if st == null:
@@ -226,7 +311,7 @@ func _add_static_visual(xform: Transform3D, size: Vector3, tag: Tag, tint: Color
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		_batches[key] = st
 		_batch_kind[key] = kind
-	_append_box(st, xform, size, _color_for(tag, tint), _uv2_for(tag, c))
+	return st
 
 
 func _color_for(tag: Tag, tint: Color) -> Color:

@@ -6,7 +6,7 @@ extends SceneTree
 var failures := 0
 
 
-const LEVELS := ["res://scenes/gym.tscn", "res://scenes/rooftops.tscn"]
+const LEVELS := ["res://scenes/gym.tscn", "res://scenes/rooftops.tscn", "res://scenes/spiral.tscn"]
 
 
 func _initialize() -> void:
@@ -50,6 +50,14 @@ func _lint(path: String) -> void:
 		q.transform = Transform3D(Basis.IDENTITY, pos + Vector3.UP * 1.0)
 		if not space.intersect_shape(q, 1).is_empty():
 			_fail("%s: station '%s' spawns inside geometry" % [path.get_file(), s[0]])
+	# Arena spawns (M3): not inside geometry, with a floor under them.
+	for sp in gym.get("arena_spawns"):
+		var sp_pos: Vector3 = sp[0]
+		q.transform = Transform3D(Basis.IDENTITY, sp_pos + Vector3.UP * 1.0)
+		if not space.intersect_shape(q, 1).is_empty():
+			_fail("%s: arena spawn %s is inside geometry" % [path.get_file(), sp_pos])
+		if space.intersect_ray(PhysicsRayQueryParameters3D.create(sp_pos + Vector3.UP * 0.3, sp_pos + Vector3.DOWN * 0.5, 1)).is_empty():
+			_fail("%s: arena spawn %s has no floor under it" % [path.get_file(), sp_pos])
 	# Course gates: the base sits on a walkable surface and a player fits inside.
 	var course = gym.get("course")  # untyped: this script compiles before autoloads exist
 	if course:

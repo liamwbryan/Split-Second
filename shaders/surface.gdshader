@@ -28,6 +28,9 @@ uniform float floor_height = 3.6;
 uniform float bay_width = 2.8;
 uniform vec3 glass_color : source_color = vec3(0.14, 0.2, 0.28);
 uniform float grid_strength = 0.06;
+// 0 = day, 1 = night: more windows lit and brighter, darker glass. Set per
+// map by LevelBase (RenderingServer.global_shader_parameter_set).
+global uniform float night;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -117,14 +120,16 @@ void fragment() {
 		float bl = fract(bx);
 		float glazed = step(0.28, fl) * step(fl, 0.93) * step(0.05, bl) * step(bl, 0.95);
 		float r = hash12(vec2(floor(bx), floor(world_pos.y / floor_height)) + UV2.y * 13.0);
-		vec3 glass = glass_color * (0.75 + 0.5 * r);
-		glass = r > 0.9 ? mix(glass, vec3(0.95, 0.85, 0.65), 0.6) : glass;
-		glass = r < 0.12 ? mix(glass, vec3(0.7, 0.72, 0.74), 0.55) : glass;
+		float lit = step(1.0 - mix(0.1, 0.24, night), r);
+		vec3 glass = glass_color * (0.75 + 0.5 * r) * mix(1.0, 0.25, night);
+		vec3 lamp = mix(vec3(0.95, 0.85, 0.65), vec3(0.75, 0.88, 1.0), step(0.5, fract(r * 7.0)) * night);
+		glass = lit > 0.5 ? mix(glass, lamp, 0.6) : glass;
+		glass = r < 0.12 ? mix(glass, vec3(0.7, 0.72, 0.74), 0.55 * (1.0 - night)) : glass;
 		col = mix(col, glass, glazed);
 		rough = mix(rough, 0.06, glazed);
 		metal = mix(metal, 0.85, glazed);
 		nrm = mix(nrm, vec3(0.5, 0.5, 1.0), glazed);
-		emit += (r > 0.9 ? vec3(0.9, 0.7, 0.45) * 0.25 : vec3(0.0)) * glazed;
+		emit += mix(vec3(0.9, 0.7, 0.45), lamp, night) * lit * glazed * mix(0.25, 0.8, night);  // day: unchanged
 	}
 
 	if (UV2.x > 0.5) {

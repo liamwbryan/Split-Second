@@ -3,6 +3,7 @@
 #   tests/run_tests.sh              run everything
 #   tests/run_tests.sh wallrun      run one test by name
 #   tests/run_tests.sh aim          aim assist tests only (aim:slowdown_near_target for one)
+#   tests/run_tests.sh spiral       SPIRAL route checks only
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -24,6 +25,14 @@ if [[ $# -eq 0 || "$1" == aim* ]]; then
 		| grep -vE "^\s*$|ObjectDB instances|Godot Engine v|at: cleanup|at: clear|resources still in use"
 	aim="${PIPESTATUS[0]}"
 	[[ "$aim" != 0 && "$status" == 0 ]] && status="$aim"
+fi
+# SPIRAL route checks (pads, the Express helix, drop-in, outside car).
+if [[ $# -eq 0 || "$1" == spiral ]]; then
+	perl -e 'alarm shift; exec @ARGV' 180 \
+		"$GODOT" --headless --path . --fixed-fps 120 res://tests/spiral_tests.tscn 2>&1 \
+		| grep -E "ok  |FAIL|spiral:|SCRIPT ERROR|Parse Error"
+	spiral="${PIPESTATUS[0]}"
+	[[ "$spiral" != 0 && "$status" == 0 ]] && status="$spiral"
 fi
 # Level placement lint (dummies inside walls, floating, spawns in geometry).
 perl -e 'alarm shift; exec @ARGV' 120 "$GODOT" --headless --path . -s res://tests/level_lint.gd 2>&1 \

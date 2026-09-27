@@ -10,8 +10,12 @@ const T := LevelBuilder.Tag
 const MOVEMENT_DEFAULT := "res://tuning/movement_default.tres"
 const SETTINGS_DEFAULT := "res://tuning/player_settings_default.tres"
 
-## name, position, yaw. Station 0 is the default spawn.
+## name, position, yaw[, pitch]. Station 0 is the default spawn. The optional
+## pitch (radians) is for vista stations that should look down over a drop.
 var stations: Array = [["Start", Vector3.ZERO, 0.0]]
+## Couch FFA spawn points for M3: [position, yaw]. Put some on every layer and
+## never facing each other. The level lint checks each one.
+var arena_spawns: Array = []
 
 var players: Array[Player] = []
 var course: Course              ## optional timed course (build it in build_level via make_course)
@@ -43,6 +47,7 @@ func intro_hint() -> String:
 func _ready() -> void:
 	tuning = _load_or_new(MOVEMENT_DEFAULT, MovementTuning) as MovementTuning
 	settings = _load_or_new(SETTINGS_DEFAULT, PlayerSettings) as PlayerSettings
+	RenderingServer.global_shader_parameter_set(&"night", 0.0)  # night maps raise it in build_environment()
 	build_environment()
 	_apply_perf_flags()
 	_b = LevelBuilder.new(self)
@@ -100,6 +105,8 @@ func _benchmark() -> void:
 	var worst := 0.0
 	var total := 0.0
 	var frames := 0
+	var phys_total := 0.0
+	var phys_worst := 0.0
 	for i in stations.size():
 		teleport(players[0], i)
 		for f in 200:
@@ -110,6 +117,9 @@ func _benchmark() -> void:
 				worst = maxf(worst, dt)
 				total += dt
 				frames += 1
+				var ph := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+				phys_total += ph
+				phys_worst = maxf(phys_worst, ph)
 	print("BENCH avg %.2f ms (%.0f fps)  worst %.2f ms  over %d frames at %s" % [
 		total / frames * 1000.0, frames / total, worst * 1000.0, frames, get_viewport().get_visible_rect().size])
 	print("BENCH draw calls %d  objects %d  primitives %dk  process %.2f ms  physics %.2f ms" % [
@@ -118,6 +128,7 @@ func _benchmark() -> void:
 		Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000,
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0])
+	print("BENCH physics avg %.2f ms  worst %.2f ms" % [phys_total / frames, phys_worst])
 	get_tree().quit()
 
 
@@ -143,7 +154,8 @@ func _screenshot_tour(dir: String) -> void:
 		_update_avatar_visibility()
 	for i in stations.size():
 		teleport(players[0], i)
-		players[0].pitch = deg_to_rad(8.0)
+		if (stations[i] as Array).size() < 4:
+			players[0].pitch = deg_to_rad(8.0)
 		for f in 45:
 			await get_tree().process_frame
 		var img := get_viewport().get_texture().get_image()
@@ -202,6 +214,8 @@ func teleport(player: Player, station: int) -> void:
 	if course:
 		course.on_teleport(player)
 	player.spawn(s[1], s[2])
+	if s.size() > 3:
+		player.pitch = s[3]
 
 
 # --------------------------------------------------------------------------- level

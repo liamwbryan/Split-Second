@@ -2,6 +2,7 @@ extends Control
 ## Title screen / level select. Keyboard, mouse and gamepad navigable.
 
 const LEVELS := [
+	["Spiral", "res://scenes/spiral.tscn", "Spiral Run: a sky garage 300 m up an arcology. Slide the Express."],
 	["Rooftops", "res://scenes/rooftops.tscn", "Rooftops Run time trial: city rooftops, crane, billboard, lift."],
 	["Movement Gym", "res://scenes/gym.tscn", "One station per move, plus a shooting range."],
 ]
