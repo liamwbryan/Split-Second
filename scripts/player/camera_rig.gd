@@ -27,6 +27,8 @@ var third_person: bool = false:
 var _eye: float = 1.62
 var _roll: float = 0.0
 var _speed_fov: float = 0.0
+var _flow_fov: float = 0.0
+var _boost_fov: float = 0.0  # decaying FOV punch from momentum boosts (degrees)
 var _dip: float = 0.0
 var _dip_vel: float = 0.0
 var _bob_phase: float = 0.0
@@ -53,6 +55,8 @@ func setup(p_player: Player) -> void:
 	_update_cull_mask()
 	camera.current = true
 	player.motor.landed.connect(_on_landed)
+	player.motor.momentum_boosted.connect(func(amount: float) -> void:
+		_boost_fov = maxf(_boost_fov, player.tuning.momentum_boost_fov_kick * clampf(amount / 3.0, 0.4, 1.0)))
 
 
 func _update_cull_mask() -> void:
@@ -145,7 +149,11 @@ func _update_transform(delta: float) -> void:
 	# Speed widens the FOV a little: sells speed without distorting aim.
 	var speed_f := clampf((speed - t.speed_fov_min) / maxf(t.speed_fov_max - t.speed_fov_min, 0.1), 0.0, 1.0)
 	_speed_fov = _damp(_speed_fov, speed_f, 4.0, delta)
-	var fov := s.fov + _speed_fov * t.speed_fov_add * s.speed_fov_scale
+	# Momentum (prototype): a fuller meter opens the view a touch more, and a
+	# boost punches it out and lets it settle.
+	_flow_fov = _damp(_flow_fov, motor.flow * t.momentum_fov_add, 3.0, delta)
+	_boost_fov = _damp(_boost_fov, 0.0, 5.0, delta)
+	var fov := s.fov + (_speed_fov * t.speed_fov_add + _flow_fov + _boost_fov) * s.speed_fov_scale
 	camera.fov = _damp(camera.fov, fov * ads_fov_mult, 18.0, delta) if delta > 0.0 else fov
 
 	# Visual punch spring.

@@ -32,6 +32,13 @@ func attach(p_player: Player) -> void:
 		Sfx.play(&"grapple_attach", -6.0, 0.05))
 	m.grapple_released.connect(func() -> void: Sfx.play(&"grapple_release", -10.0, 0.05))
 	m.grapple_missed.connect(func() -> void: Sfx.play(&"denied", -8.0))
+	# Momentum (prototype): each chained move chimes a little higher, and a
+	# boost gets a whoosh on top of the move's own sound.
+	m.momentum_linked.connect(func(flow: float) -> void:
+		if player.tuning.momentum_link_sound_db > -39.0:
+			Sfx.play(&"grapple_release", player.tuning.momentum_link_sound_db, 0.0, 0.85 + flow * 0.6))
+	m.momentum_boosted.connect(func(amount: float) -> void:
+		Sfx.play(&"double_jump", linear_to_db(clampf(amount / 4.0, 0.35, 1.0)) - 4.0, 0.05, 1.3))
 	m.state_changed.connect(func(_from: int, to: int) -> void:
 		if to == PlayerMotor.State.WALLRUN or to == PlayerMotor.State.WALLCLIMB:
 			Sfx.play(&"step", -4.0, 0.15))
@@ -83,6 +90,7 @@ func _update_wind(delta: float, state: int) -> void:
 			weight = 0.55
 	var speed := player.velocity.length()
 	var target := weight * smoothstep(WIND_MIN_SPEED, WIND_FULL_SPEED, speed)
+	target = minf(1.0, target + weight * player.motor.flow * 0.2)  # a full momentum meter roars a bit more
 	var rate := WIND_ATTACK if target > _wind_level else WIND_RELEASE
 	_wind_level = move_toward(_wind_level, target, rate * delta)
 	_wind_t += delta

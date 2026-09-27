@@ -12,6 +12,7 @@ func _init() -> void:
 		["Grapple", Vector3(0, 0, 24), PI],
 		["Rooftop Combo", Vector3(20, 6, -30), -PI * 0.5],
 		["Range", Vector3(12, 0, 25), -PI * 0.5],
+		["Momentum Lane", Vector3(-32, 8, 40), PI * 0.5],
 	]
 
 
@@ -25,6 +26,7 @@ func build_level() -> void:
 	_build_grapple_field()
 	_build_rooftops()
 	_build_range()
+	_build_momentum_lane()
 
 
 func _build_slide_lane() -> void:
@@ -152,3 +154,21 @@ func _build_range() -> void:
 	target(Vector3(72, 4, 18), Vector3.ZERO)
 
 
+
+
+## Momentum prototype lane (docs/MOMENTUM.md): sprint off the deck, chain three
+## alternating wall-runs down a 6 m corridor, then drop onto a steep slide ramp
+## holding crouch. Compare with momentum_enabled on and off (tuning, Movement).
+func _build_momentum_lane() -> void:
+	var b := _b
+	checkpoint(Vector3(-32, 8, 40), Vector3(6, 2, 8), PI * 0.5)
+	b.block(Vector3(-40, 0, 36), Vector3(-28, 8, 44), T.DARK)
+	b.label(Vector3(-50, 15, 40), "MOMENTUM LANE  (turn on momentum_enabled: `  →  Movement)", 56, 90)
+	# Corridor faces at z=43 (left) and z=37 (right), one block per wall-run.
+	b.block(Vector3(-58, 0, 43), Vector3(-44, 12, 43.6), T.RUN)
+	b.block(Vector3(-76, 0, 36.4), Vector3(-62, 12, 37), T.RUN)
+	b.block(Vector3(-94, 0, 43), Vector3(-80, 12, 43.6), T.RUN)
+	# Drop onto a 23° slide ramp (land holding crouch), then a flat run-out.
+	b.ramp(Vector3(-98, 6, 40), Vector3(-112, 0, 40), 8.0, T.BOOST, 0.4)
+	b.label(Vector3(-105, 9, 44.5), "LAND IN A SLIDE", 64, 90)
+	b.label(Vector3(-138, 3, 40), "check your speed (O)", 56, 90)

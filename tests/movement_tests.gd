@@ -117,7 +117,9 @@ func _run_all() -> void:
 		"grapple", "coyote_jump", "jump_buffer_bhop", "ramp_slide_accel", "chimney",
 		"corridor_chain", "grapple_into_mantle", "wall_coyote_kick", "ground_wall_no_snag",
 		"shoot_dummy", "slide_release_stands", "ride_lift", "jump_off_moving_platform", "wallrun_moving_wall", "keyboard_bindings", "keyboard_grapple", "grapple_release", "grapple_tap_yank",
-		"fp_arms", "course_run", "climb_jump_direction",
+		"fp_arms", "course_run", "climb_jump_direction", "mantle_lift_gentle",
+		"momentum_off_identical", "momentum_chain_builds", "momentum_raises_cap", "momentum_kick_boost",
+		"momentum_wallrun_keeps_speed", "momentum_slide_landing", "momentum_slide_hop_bounded",
 	]
 	for t in tests:
 		if only != "" and t != only:
@@ -846,3 +848,209 @@ func test_climb_jump_direction() -> void:
 	await seconds(0.4)
 	check("neutral + jump kicks off the wall", jumps_seen.has(PlayerMotor.JumpKind.CLIMB_KICK), str(jumps_seen))
 	check("kick turns to face away", absf(wrapf(player.yaw - PI, -PI, PI)) < 0.2, "yaw %.2f" % player.yaw)
+
+
+## The mantle lift eases in (HANDOFF item 1): the body shouldn't rise half-way
+## in the first few frames, or the ledge and the hand plants drop out of view.
+func test_mantle_lift_gentle() -> void:
+	var t := player.tuning
+	check("ease 0 keeps the old ease-out curve", absf(PlayerMotor.mantle_lift_curve(0.2, 0.0) - (1.0 - pow(1.0 - 0.2 / 0.7, 2.0))) < 0.001)
+	await reset(Vector3(300, 0, 0))
+	router.scripted_move = Vector2(0, 1)
+	await ticks(10)
+	await tap(A.JUMP)
+	var y0 := NAN
+	var y_early := NAN
+	var mantle_ticks := 0
+	for i in 120:
+		await get_tree().physics_frame
+		if player.motor.state == S.MANTLE:
+			if is_nan(y0):
+				y0 = player.global_position.y
+			mantle_ticks += 1
+			if is_nan(y_early) and player.motor.mantle_progress() >= 0.2:
+				y_early = player.global_position.y
+		elif not is_nan(y0):
+			break
+	var lift := 1.4 - y0
+	var frac := (y_early - y0) / maxf(lift, 0.01)
+	check("mantle lifts < 35% in its first 20%", frac < 0.35, "frac %.2f (lift %.2f m)" % [frac, lift])
+	var want := t.mantle_time_base + t.mantle_time_per_meter * 1.4
+	check("mantle time unchanged", absf(mantle_ticks / 120.0 - want) < 0.15, "%.3f s vs %.3f" % [mantle_ticks / 120.0, want])
+	await seconds(0.3)
+	check("still ends on top", absf(player.global_position.y - 1.4) < 0.15, "y %.2f" % player.global_position.y)
+
+
+# --------------------------------------------------------------------------- momentum prototype (docs/MOMENTUM.md)
+
+func _momentum(on: bool) -> void:
+	player.tuning.momentum_enabled = on
+
+
+## Corridor chain (left wall, kick, right wall); returns the final state.
+func _run_corridor_chain() -> Array:
+	await reset(Vector3(1198.3, 0, -1))
+	router.scripted_move = Vector2(-0.3, 1)
+	await seconds(0.25)
+	await tap(A.JUMP)
+	router.scripted_move = Vector2(0, 1)
+	await seconds(0.5)
+	player.yaw = deg_to_rad(-40.0)
+	await tap(A.JUMP)
+	await seconds(0.7)
+	return [player.global_position, player.velocity, player.motor.flow]
+
+
+## With the toggle off, even extreme momentum values change nothing. (Scripted
+## runs vary by a few cm between repeats, so compare with a tolerance far below
+## what any momentum rule would add.)
+func test_momentum_off_identical() -> void:
+	var t := player.tuning
+	_momentum(false)
+	var base: Array = await _run_corridor_chain()
+	var base_wr := await _wallrun_speed_after(0.0)
+	var saved := [t.momentum_cap_bonus, t.momentum_kick_speed, t.momentum_wallrun_keep, t.momentum_land_min_impact, t.momentum_land_convert, t.momentum_link_gain]
+	t.momentum_cap_bonus = 20.0
+	t.momentum_kick_speed = 5.0
+	t.momentum_wallrun_keep = 1.0
+	t.momentum_land_min_impact = 0.0
+	t.momentum_land_convert = 1.0
+	t.momentum_link_gain = 1.0
+	player.motor.flow = 1.0
+	check("momentum off: soft cap untouched", player.motor.soft_speed_cap() == t.soft_speed_cap, "%.2f" % player.motor.soft_speed_cap())
+	check("momentum off: no slide-landing bonus", player.motor._slide_landing_bonus(30.0) == 0.0)
+	var cranked: Array = await _run_corridor_chain()
+	var cranked_wr := await _wallrun_speed_after(1.0)
+	t.momentum_cap_bonus = saved[0]
+	t.momentum_kick_speed = saved[1]
+	t.momentum_wallrun_keep = saved[2]
+	t.momentum_land_min_impact = saved[3]
+	t.momentum_land_convert = saved[4]
+	t.momentum_link_gain = saved[5]
+	check("momentum off: flow stays 0", cranked[2] == 0.0, "flow %.2f" % cranked[2])
+	var dv := absf(PlayerMotor._h(cranked[1]).length() - PlayerMotor._h(base[1]).length())
+	check("momentum off: chain speed unchanged", dv < 0.3, "diff %.2f m/s" % dv)
+	check("momentum off: wall-run bleed unchanged", absf(cranked_wr - base_wr) < 0.1, "%.2f vs %.2f" % [cranked_wr, base_wr])
+
+
+func test_momentum_chain_builds() -> void:
+	_momentum(true)
+	var r: Array = await _run_corridor_chain()
+	check("momentum: wall-run, kick, wall-run fills the meter", r[2] > 0.45, "flow %.2f  states %s" % [r[2], str(states_seen)])
+	router.scripted_move = Vector2.ZERO
+	await seconds(2.5)
+	check("momentum: drains on foot", player.motor.state == S.GROUND and player.motor.flow == 0.0,
+		"%s flow %.2f" % [player.motor.state_name(), player.motor.flow])
+	_momentum(false)
+
+
+func _air_speed_after_launch(flow: float) -> float:
+	await reset(Vector3(60, 0, 0))
+	player.motor.flow = flow
+	player.motor.launch(Vector3(0, 8, -24))
+	await seconds(0.5)
+	return hs()
+
+
+func test_momentum_raises_cap() -> void:
+	_momentum(false)
+	var off := await _air_speed_after_launch(0.0)
+	_momentum(true)
+	var on := await _air_speed_after_launch(1.0)
+	_momentum(false)
+	check("soft cap bleeds 24 m/s when off", off < 21.5, "speed %.2f" % off)
+	check("full meter raises the soft cap", on > 22.5, "speed %.2f" % on)
+
+
+func _kick_speed(flow: float) -> float:
+	await reset(Vector3(100, 0, -7))
+	router.scripted_move = Vector2(0.3, 1)
+	await seconds(0.5)
+	await tap(A.JUMP)
+	await seconds(0.3)
+	router.scripted_move = Vector2(0, 1)
+	await seconds(0.3)
+	player.motor.flow = flow
+	await tap(A.JUMP)
+	await ticks(2)
+	return hs()
+
+
+func test_momentum_kick_boost() -> void:
+	_momentum(false)
+	var off := await _kick_speed(0.0)
+	_momentum(true)
+	var on := await _kick_speed(0.8)
+	_momentum(false)
+	check("momentum: wall kick adds speed with a full meter", on - off > 1.0, "on %.2f off %.2f" % [on, off])
+
+
+func _wallrun_speed_after(flow: float) -> float:
+	await reset(Vector3(100.5, 0, -7))
+	router.scripted_move = Vector2(0.2, 1)
+	player.motor.flow = flow
+	player.motor.launch(Vector3(0.5, 7, -16))
+	var t := 0.0
+	while player.motor.state != S.WALLRUN and t < 1.0:
+		await get_tree().physics_frame
+		t += 1.0 / 120.0
+	router.scripted_move = Vector2(0, 1)
+	player.motor.flow = flow
+	await seconds(1.0)
+	return hs() if player.motor.state == S.WALLRUN else -1.0
+
+
+func test_momentum_wallrun_keeps_speed() -> void:
+	_momentum(false)
+	var off := await _wallrun_speed_after(0.0)
+	_momentum(true)
+	var on := await _wallrun_speed_after(1.0)
+	_momentum(false)
+	check("wall-run bleeds entry speed when off", off > 0.0 and off < 15.0, "speed %.2f" % off)
+	check("momentum: wall-run keeps entry speed", on > 15.3, "speed %.2f" % on)
+
+
+func _slide_landing_speed() -> float:
+	await reset(Vector3(80, 0, 0))
+	router.scripted_move = Vector2(0, 1)
+	await seconds(1.7)  # let the previous run's slide-boost chain window lapse
+	hold(A.CROUCH)
+	player.motor.launch(Vector3(0, 14, -10))
+	var t := 0.0
+	await ticks(5)
+	while player.motor.state == S.AIR and t < 3.0:
+		await get_tree().physics_frame
+		t += 1.0 / 120.0
+	var speed := hs()
+	var sliding := player.motor.state == S.SLIDE
+	hold(A.CROUCH, false)
+	return speed if sliding else -1.0
+
+
+var _momentum_events: Array = []
+
+
+func test_momentum_slide_landing() -> void:
+	_momentum(false)
+	var off := await _slide_landing_speed()
+	_momentum(true)
+	var on_boost := func(amount: float) -> void: _momentum_events.append(amount)
+	var on_link := func(flow: float) -> void: _momentum_events.append(-flow)
+	player.motor.momentum_boosted.connect(on_boost)
+	player.motor.momentum_linked.connect(on_link)
+	_momentum_events.clear()
+	var on := await _slide_landing_speed()
+	player.motor.momentum_boosted.disconnect(on_boost)
+	player.motor.momentum_linked.disconnect(on_link)
+	_momentum(false)
+	check("slide-landing boost and link fire feedback signals",
+		_momentum_events.any(func(e: float) -> bool: return e > 2.0) and _momentum_events.any(func(e: float) -> bool: return e < 0.0), str(_momentum_events))
+	check("hard landing slides", off > 0.0 and on > 0.0, "off %.2f on %.2f" % [off, on])
+	check("momentum: fall speed turns into slide speed", on - off > 2.5, "on %.2f off %.2f" % [on, off])
+
+
+func test_momentum_slide_hop_bounded() -> void:
+	# Flat-ground slide-hopping fills the meter but must not farm speed.
+	_momentum(true)
+	await test_slide_hop_bounded()
+	_momentum(false)

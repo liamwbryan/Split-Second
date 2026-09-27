@@ -92,6 +92,16 @@ func _draw() -> void:
 	var uw := _font.get_string_size(unit, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * ui)).x
 	draw_string(_font, Vector2(c.x - uw * 0.5, size.y - 50.0 * ui), unit, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14 * ui), Color(1, 1, 1, 0.6))
 
+	# Momentum meter (prototype): a thin bar under the speed that fills as you chain.
+	if player.tuning.momentum_enabled:
+		var flow := player.motor.flow
+		var bw := 110.0 * ui
+		var bar := Rect2(c.x - bw * 0.5, size.y - 40.0 * ui, bw, 4.0 * ui)
+		draw_rect(bar, Color(1, 1, 1, 0.15))
+		if flow > 0.001:
+			var fill := Rect2(bar.position, Vector2(bw * flow, bar.size.y))
+			draw_rect(fill, ACCENT.lerp(HEAD, clampf(flow * 2.0 - 1.0, 0.0, 1.0)))
+
 	# Double jump pip + grapple ring, left of the speed.
 	var motor := player.motor
 	var pip_pos := Vector2(c.x - 90.0 * ui, size.y - 80.0 * ui)

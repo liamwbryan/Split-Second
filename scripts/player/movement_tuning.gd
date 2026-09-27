@@ -90,6 +90,7 @@ extends Resource
 @export_range(0.0, 0.5, 0.01) var mantle_time_per_meter: float = 0.08
 @export_range(0.0, 15.0, 0.1) var mantle_exit_speed: float = 5.5
 @export_range(0.0, 1.0, 0.01) var mantle_speed_keep: float = 0.6
+@export_range(0.0, 1.0, 0.05) var mantle_lift_ease: float = 1.0  ## 0 = snappy ease-out lift, 1 = ease-in-out (the ledge and hands stay on screen longer)
 @export_range(0.3, 2.0, 0.05) var vault_max_height: float = 1.25
 @export_range(0.0, 15.0, 0.1) var vault_min_speed: float = 6.5
 @export_range(0.05, 1.0, 0.01) var vault_time: float = 0.22
@@ -107,6 +108,25 @@ extends Resource
 @export_range(0.5, 6.0, 0.1) var grapple_release_distance: float = 2.2
 @export_range(0.0, 15.0, 0.1) var grapple_ground_lift: float = 5.0
 @export_range(0.0, 15.0, 0.1) var grapple_magnet_angle: float = 6.0  ## aim assist toward grapple points
+
+@export_group("Momentum")
+## Prototype (docs/MOMENTUM.md): chaining moves fills a flow meter that raises
+## the soft speed cap, makes kicks push you faster and lets wall-runs keep their
+## entry speed. Landing hard into a slide turns fall speed into slide speed.
+@export var momentum_enabled: bool = false
+@export_range(0.0, 1.0, 0.05) var momentum_link_gain: float = 0.2  ## meter per chained move (wall-run, kick, slide-hop, slide landing, grapple release)
+@export_range(0.0, 2.0, 0.05) var momentum_air_decay: float = 0.15  ## meter lost per second in the air
+@export_range(0.0, 10.0, 0.1) var momentum_ground_decay: float = 2.0  ## meter lost per second on foot (not sliding)
+@export_range(0.0, 1.0, 0.05) var momentum_ground_grace: float = 0.2  ## seconds on foot before the meter drains
+@export_range(0.0, 20.0, 0.5) var momentum_cap_bonus: float = 7.0  ## soft speed cap raise at a full meter
+@export_range(0.0, 5.0, 0.1) var momentum_kick_speed: float = 1.5  ## speed a wall/climb kick or grapple release adds at a full meter
+@export_range(0.0, 1.0, 0.05) var momentum_wallrun_keep: float = 0.8  ## at a full meter, this much less wall-run overspeed bleed
+@export_range(0.0, 30.0, 0.5) var momentum_land_min_impact: float = 9.0  ## fall speed a slide landing must beat (a slide-hop lands at ~8)
+@export_range(0.0, 1.0, 0.05) var momentum_land_convert: float = 0.6  ## fraction of fall speed above that turned into slide speed
+@export_range(0.0, 15.0, 0.5) var momentum_land_max: float = 6.0  ## most speed one slide landing can add
+@export_range(0.0, 15.0, 0.5) var momentum_fov_add: float = 4.0  ## extra FOV (degrees) at a full meter
+@export_range(0.0, 15.0, 0.5) var momentum_boost_fov_kick: float = 4.0  ## FOV punch (degrees) on a slide-landing or kick boost
+@export_range(-40.0, 0.0, 1.0) var momentum_link_sound_db: float = -15.0  ## rising chime per chained move (-40 = off)
 
 @export_group("Camera")
 @export_range(0.0, 30.0, 0.5) var wallrun_camera_tilt: float = 9.0
