@@ -11,13 +11,12 @@ extends Node3D
 ##   - spire(): a hero landmark with a slowly turning ring
 ## Add it to the level, call the builders, then finalize().
 
-const FACADE_KIND := LevelBuilder.Kind.FACADE
-
 var _traffic: Array[GeometryInstance3D] = []
 var _lights: PackedVector3Array = []
 var _rings: Array[Node3D] = []
 var _ring_speeds: PackedFloat32Array = []
 var _silhouette_mat: StandardMaterial3D
+static var _far_mat: ShaderMaterial
 
 
 func _ready() -> void:
@@ -253,7 +252,10 @@ func _facade_multimesh(xforms: Array[Transform3D], colors: PackedColorArray) -> 
 	for i in xforms.size():
 		mm.set_instance_transform(i, xforms[i])
 		mm.set_instance_color(i, colors[i])
-	_add_multimesh(mm, SurfaceMaterials.get_material(FACADE_KIND))
+	if _far_mat == null:
+		_far_mat = ShaderMaterial.new()
+		_far_mat.shader = preload("res://shaders/facade_far.gdshader")
+	_add_multimesh(mm, _far_mat)
 
 
 func _add_multimesh(mm: MultiMesh, mat: Material) -> MultiMeshInstance3D:

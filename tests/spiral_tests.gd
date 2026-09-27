@@ -28,6 +28,8 @@ func _ready() -> void:
 	await _express()
 	await _drop_in()
 	await _outer_car()
+	await _corner_grapple("SE beacon → deck 3", Vector3(17.0, 0, 17.0), Vector3(17.3, 14.5, 17.3), 12.0, Vector2(1, 1))
+	await _corner_grapple("SW beacon → deck 4", Vector3(-17.0, 0, 17.0), Vector3(-17.3, 20.5, 17.3), 18.0, Vector2(-1, 1))
 	print("\nspiral: %d failures" % failures)
 	get_tree().quit(failures)
 
@@ -125,3 +127,33 @@ func _outer_car() -> void:
 		await get_tree().physics_frame
 		top = maxf(top, p.horizontal_speed())
 	_check("outside hover car carries you and launches you", rode and top > 22.0, "rode=%s top %.1f m/s" % [rode, top])
+
+
+## Grapple a corner beacon from below, steer outward, and end up on the deck
+## just above it (the "grapple up the void" leg of Spiral Run).
+func _corner_grapple(label: String, at: Vector3, anchor: Vector3, deck_y: float, out: Vector2) -> void:
+	_clear()
+	p.motor.grapple_cooldown_left = 0.0
+	p.spawn(at + Vector3(0, 0.1, 0), atan2(-out.x, -out.y))  # face outward: forward = (-sin yaw, -cos yaw)
+	await get_tree().physics_frame
+	var eye := p.global_position + Vector3.UP * p.tuning.eye_height
+	var d := anchor - eye
+	p.pitch = atan2(d.y, Vector2(d.x, d.z).length())
+	p.yaw = atan2(-d.x, -d.z)
+	router.scripted_held[A.GRAPPLE] = true
+	for i in 90:
+		await get_tree().physics_frame
+		if p.global_position.y > anchor.y - 1.5:
+			break
+	p.yaw = atan2(-out.x, -out.y)
+	p.pitch = 0.0
+	router.scripted_move = Vector2(0, 1)
+	for i in 30:
+		await get_tree().physics_frame
+	router.scripted_held[A.GRAPPLE] = false
+	for i in 240:
+		await get_tree().physics_frame
+		if p.is_on_floor() and i > 20:
+			break
+	var q := p.global_position
+	_check("corner grapple: " + label, absf(q.y - deck_y) < 0.3 and (absf(q.x) >= 18.0 or absf(q.z) >= 18.0), "ended at %s state %s" % [q.snappedf(0.1), p.motor.state_name()])

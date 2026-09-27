@@ -33,8 +33,8 @@ const GATES := [
 	["Express drop-in", Vector3(-15.5, 18, 0), 3.5],
 	["Express exit", Vector3(20, 0, -8), 3.5],
 	["SW dock", Vector3(-33, 0, 33), 4.0],
-	["Deck 4 corner", Vector3(-23, 18, 23), 4.0],
-	["Deck 7 corner", Vector3(-23, 36, -23), 4.0],
+	["Deck 4 corner", Vector3(-21, 18, 21), 4.0],
+	["Deck 7 corner", Vector3(-21, 36, -21), 4.0],
 ]
 
 var backdrop: Backdrop
@@ -486,12 +486,12 @@ func _void() -> void:
 		for sz: float in [-1.0, 1.0]:
 			var c := Vector3(15 * sx, 0, 15 * sz)
 			_b.block(c + Vector3(-1.25, 0, -1.25), c + Vector3(1.25, ROOF + 3.0, 1.25), T.RUN)
-	# Corner grapple beacons, each 1.5 m under a deck edge: grapple up the
-	# corner gap and mantle out onto that deck.
-	_b.grapple_point(Vector3(17.3, 10.5, 17.3))    # SE → deck 3
-	_b.grapple_point(Vector3(-17.3, 16.5, 17.3))   # SW → deck 4
-	_b.grapple_point(Vector3(17.3, 28.5, -17.3))   # NE → deck 6
-	_b.grapple_point(Vector3(-17.3, 34.5, -17.3))  # NW → deck 7
+	# Corner grapple beacons, each 2.5 m above a deck: zip up the corner gap
+	# from any deck below, then step out onto that deck.
+	_b.grapple_point(Vector3(17.3, 14.5, 17.3))    # SE → deck 3
+	_b.grapple_point(Vector3(-17.3, 20.5, 17.3))   # SW → deck 4
+	_b.grapple_point(Vector3(17.3, 32.5, -17.3))   # NE → deck 6
+	_b.grapple_point(Vector3(-17.3, 38.5, -17.3))  # NW → deck 7
 	_b.grapple_point(Vector3(0, ROOF + 6.0, 9.0))  # over the void, south of the catwalk
 	# Deck 1 pit: a ring of light on the floor and two antigrav pads that
 	# launch you up and out onto deck 3 (east and west).
