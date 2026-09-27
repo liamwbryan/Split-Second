@@ -33,6 +33,12 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 - [x] Rooftops Run course: timer, checkpoints, finish, par time, splits vs best, medals, saved best (`Course`, reusable for M6/Race)
 - [x] Blender props: AC units, water tower, vents (MultiMesh); crane lattice + billboard frame (models on the movers, box collision unchanged)
 - [x] Windows export (untested on real hardware yet)
+- [x] **SPIRAL** (2026-09-26): night sky garage at 300 m, the Express helix slide lane, Spiral Run course, backdrop scale toolkit (`Backdrop`), `tests/spiral_tests`
+- [x] **PENDULUM HALL** first pass (2026-09-26): sky museum, 90 m pendulum slingshot (~29 m/s), Pendulum Run course, `tests/pendulum_tests`. Needs Liam's play and a dressing pass.
+- [x] "Big but full" cover pass on Rooftops and SPIRAL; `Props.barrier/crates/kiosk/planter`
+- [x] Momentum prototype (off by default, `docs/MOMENTUM.md`); gentler mantle lift
+- [x] Renamed to **Split Second** (user data migrates from the old name)
+- [ ] **AAA art pass** (`docs/ART_DIRECTION.md`: Mirror's Edge bones, Ascent/Ghostrunner skin): chamfered level geometry and panel seams done; city prop kit in progress; museum kit, training-dummy model, avatar weapons next
 - [x] **Swing grapple + grapple launcher** (2026-09-26, Liam's request): rope-constraint swing (look away to swing, look at it to zip), stick steering, crouch pays out rope, release pop; a handgun-style launcher in the free hand fires a claw hook on a visible cable (sways with look, stride and swing); Swing station in the gym
 
 ## M2 — Gunplay Core
