@@ -57,17 +57,23 @@ The player always reads the route first, then the world's richness.
 ## 4. Kit manifest (priority order)
 
 ### City kit (Rooftops, SPIRAL, later city maps)
-1. **Hover car** (parked, with a variant on movers): canopy, nacelles, underglow, paint slot. It replaces SPIRAL's box cars. *Hero asset, approve first.*
-2. **Railing module** (2 m): posts, twin rails, glass or mesh infill, light strip. Replaces flat rail boxes.
-3. **Jersey barrier** (futuristic): tapered profile, hazard light bar, lift points.
-4. **Cargo crate family** (1.2 m and a 2.4 m long crate): corner guards, ribs, stencil panel, handles.
-5. **Kiosk / vending machine** (2.4 m): screen, lit panel, canopy lip, vents.
-6. **Neon sign rigs**: vertical blade sign, horizontal banner, glyph panels, arrow signs; bracket and cable mounts.
-7. **Pipe and duct runs**: straight, elbow and T pieces plus brackets (wall dressing); **cable bundles** (drape between points).
-8. **Wall machinery**: vent grilles, fan housings, junction boxes, conduit boxes; the AC units upgraded to match.
-9. **Street and roof furniture**: lamp post (futuristic), bench, planter (sculpted), bollards, roof access door, antenna cluster, dish.
-10. **Structural trims**: pillar caps and bases, beam brackets, ceiling light fixtures, grated catwalk module.
-11. **Training dummy**: a sleek target robot. It replaces the capsule dummy and matches the weapons work.
+> **Built 2026-09-26** (`art/blender/city_kit.py` → `assets/models/kit_*.glb`, placed through `Props`; `art/blender/kit_sheet.py` renders a contact sheet). Tri counts are in brackets.
+
+1. ✅ **Hover car** [2.6k]: a lofted wedge hull, a teardrop glass canopy, four nacelles with thrust rings, underglow, head and tail light blades, intakes and canards. Paint is per instance (`KitPaint`). It's used for SPIRAL's parked cars and, stretched to their boxes, the mover cars (`Props.paint_node`).
+2. ✅ **Railing module** [528]: posts, a white top rail, a cyan strip, a mid rail, **slim balusters** and a kick plate with an amber glow. *Deviation:* the smoked-glass infill read as a solid black band in game, so it's balusters (see-through, opaque, no transparency pass). The SPIRAL helix rail is still LevelBuilder geometry.
+3. ✅ **Jersey barrier** [404]: a tapered profile, hazard stripe, amber light bar, lift slots and metal end caps. Scaled to each footprint.
+4. ✅ **Cargo crate** [968]: 1.2 m, corner guards, ribs, handles, a stencil plate and a status LED; paint per instance. *Left:* the 2.4 m long crate.
+5. ✅ **Kiosk** [948], plus two SPIRAL deck-cover pieces: the **holo pylon** [712] and the **charging pod** [744]. Screens and ad panels are `KitSign`, glowing in a per-instance colour (`shaders/kit_sign.gdshader`).
+6. ✅ **Neon sign rigs**: blade sign [624], banner [392] and glyph panel [92], all with modeled pseudo-kanji glyph strokes and per-instance colour. *Left:* arrow signs.
+7. ✅ **Pipe run** [668] (twin pipes on brackets), **duct** [324] (ceiling-hung) and **cable bundle** [488] (stretched between any two anchors). *Left:* elbow and T pieces.
+8. ✅ **Vent grille** [152], **fan** [536], **junction box** [224]. *Left:* AC units restyled to match (`rooftop_props.py`).
+9. ✅ **Lamp** [292] (it replaces every `street_light`), **bench** [488], **planter** [1,076] and **bollard** [436]. *Left:* roof access door, antenna cluster, dish.
+10. ⬜ **Structural trims**: pillar caps and bases, beam brackets, ceiling light fixtures, grated catwalk module.
+11. ⬜ **Training dummy**: a sleek target robot to replace the capsule dummy (pairs with the weapons work).
+
+Also left for a later pass: Rooftops' vans are still boxes; SPIRAL's two roof blocks; the planter trees are stylized blobs (they want a proper foliage card or leaf clusters).
+
+**Cost:** visibility ranges are 70–120 m for small dressing, 250 m for railings and lamps, and 400–600 m for cover and signs, so cover never disappears. Small dressing casts no shadows. Rooftops' draw calls on High went from 286 to 405 (each model is 4–8 material surfaces), so merging the kit's fixed materials into one atlas material is the next cost lever if a mid-range PC needs it.
 
 ### Museum kit (Pendulum Hall)
 Plinth with sculpture, display case (glass and gold trim), holo pedestal, gallery railing (gold), bench, a modeled fossil skeleton, and the orbital planet frame.
