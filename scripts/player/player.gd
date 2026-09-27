@@ -17,7 +17,9 @@ var pitch: float = 0.0
 
 var motor: PlayerMotor
 var camera_rig: CameraRig
-var weapon: HitscanWeapon
+var weapon: HitscanWeapon  ## the gun logic (shared by every gun in the loadout)
+var melee: Melee
+var loadout: Loadout
 var hud: PlayerHud
 var avatar: RunnerAvatar
 var aim_assist: AimAssist
@@ -67,6 +69,14 @@ func setup(index: int, p_router: InputRouter, p_tuning: MovementTuning, view_roo
 	weapon.setup(self, camera_rig, preload("res://scripts/weapons/rifle.tres"))
 	camera_rig.attach_fp_body(weapon.viewmodel)
 	camera_rig.attach_grapple_gun()
+	melee = Melee.new()
+	melee.name = "Melee"
+	camera_rig.add_child(melee)
+	melee.setup(self, camera_rig, weapon.viewmodel)
+	loadout = Loadout.new()
+	loadout.name = "Loadout"
+	camera_rig.add_child(loadout)
+	loadout.setup(self, weapon, melee)
 
 	aim_assist = AimAssist.new()
 	aim_assist.setup(self)
@@ -104,6 +114,7 @@ func respawn() -> void:
 	pitch = 0.0
 	_turn_active = false
 	aim_assist.reset()
+	loadout.reset()
 	reset_physics_interpolation()
 	camera_rig.snap()
 	respawned.emit()
@@ -117,8 +128,13 @@ func _physics_process(delta: float) -> void:
 		else:
 			respawn()
 		return
-	motor.physics_step(delta)
-	weapon.physics_step(delta)
+	if melee.hitstop_left > 0.0:
+		# Hit-stop: this player's movement and swing freeze for a few frames on
+		# a blade hit (per player, so split-screen partners don't feel it).
+		melee.hitstop_left -= delta
+	else:
+		motor.physics_step(delta)
+		loadout.physics_step(delta)
 	aim_assist.physics_step(delta)
 	if global_position.y < -60.0:
 		respawn()

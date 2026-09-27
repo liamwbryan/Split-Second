@@ -1,34 +1,56 @@
 class_name Viewmodel
 extends Node3D
-## Procedural first-person gun plus its motion: sway from look, bob from
+## Procedural first-person weapon plus its motion: sway from look, bob from
 ## running, tilt on wall-runs, drop on landing, kick on fire. Rendered only to
 ## its owner's camera via a per-player layer.
 ## Carry (WeaponData.one_hand_hip): SMG style = one hand at the hip, pumping
 ## with the right arm while sprinting; `support` (0..1) brings the second hand
 ## on for aiming. Rifle style = two hands always.
 ## Updated by the camera rig (update()) right before the first-person arms.
+##
+## One node carries every weapon: each WeaponData's model is built once and
+## cached (set_weapon() just shows another), and its grip positions come from
+## the data (hip / one-hand / ADS / sprint), so the arms IK to whatever is held.
+## Blades are held like a pistol grip (the mount stands the blade up out of the
+## fist) and animate through swing arcs: hand position + blade direction keys,
+## with the edge leading the motion.
 
-const MODEL := preload("res://assets/models/agent_rifle.glb")  # art/blender/rifle.py
-const MODEL_SCALE := 0.9
-## Positions of the gun's grip (model origin) in camera space.
-const HIP_POS := Vector3(0.16, -0.19, -0.4)       ## two hands
-const HIP1_POS := Vector3(0.17, -0.2, -0.36)      ## one hand
-const ADS_POS := Vector3(0.0, -0.132, -0.19)  # puts the sight line (0, 0.147, -0.06) * scale on the view axis
-const SPRINT_POS := Vector3(0.13, -0.24, -0.34)   ## two hands: rifle port-arms carry
-const SPRINT1_POS := Vector3(0.2, -0.27, -0.3)    ## one hand, mid-swing
+const RIFLE_MODEL := preload("res://assets/models/agent_rifle.glb")  # art/blender/rifle.py
 ## One-handed sprint pump (camera space): the gun rides the right hand's swing.
 const PUMP_FWD := 0.09
 const PUMP_UP := 0.05
 const PUMP_PITCH := deg_to_rad(14.0)
+## Blade swing arcs (camera space): windup, strike, follow-through, each
+## [hand position, blade direction]. 0 forehand (right to left), 1 backhand
+## (left to right, rising), 2 overhead chop.
+const SWINGS := [
+	[[Vector3(0.32, -0.12, -0.24), Vector3(0.9, 0.25, 0.35)], [Vector3(0.06, -0.14, -0.42), Vector3(0.0, -0.05, -1.0)], [Vector3(-0.22, -0.2, -0.36), Vector3(-0.9, -0.2, -0.2)]],
+	[[Vector3(-0.16, -0.2, -0.3), Vector3(-0.9, -0.1, 0.2)], [Vector3(0.02, -0.1, -0.45), Vector3(0.0, 0.1, -1.0)], [Vector3(0.3, -0.06, -0.3), Vector3(0.9, 0.35, -0.1)]],
+	[[Vector3(0.14, 0.04, -0.25), Vector3(0.1, 0.9, 0.3)], [Vector3(0.04, -0.12, -0.45), Vector3(0.0, -0.2, -1.0)], [Vector3(0.02, -0.32, -0.38), Vector3(0.0, -0.95, -0.2)]],
+]
+const BLADE_IDLE_DIR := Vector3(0.05, 0.24, -0.97)  ## at rest: low on the right, pointing ahead, clear of the crosshair
 
 var player: Player
 var muzzle: Node3D
-## Hand sockets on the gun (from the Blender model): the first-person arms IK to these.
+## Hand sockets on the weapon (from the Blender model): the first-person arms IK to these.
 var grip_r: Node3D
 var grip_l: Node3D
 var ads_amount: float = 0.0
 var support: float = 1.0          ## 1 = second hand on the gun (aiming / rifle carry)
 var data: WeaponData
+## 0 = up, 1 = lowered out of view (weapon switch). Set by the Loadout.
+var lower: float = 0.0
+## Blade swing: -1 = none, else 0..1 through `swing_index`'s arc.
+var swing_t: float = -1.0
+var swing_index: int = 0
+## Quick melee: the blade comes up from below the frame instead of the hip.
+var swing_from_low: bool = false
+## Bolt/charge cycle after a shot: 1 → 0 over the cycle.
+var cycle: float = 0.0
+## True while a scoped weapon is fully zoomed: the gun and arms hide.
+var scoped_in: bool = false
+var model_root: Node3D  ## the current weapon's model
+var trail: SlashTrail   ## blade trail, sampled after each pose
 
 var _sway: Vector2 = Vector2.ZERO
 var _last_yaw: float = 0.0
@@ -45,16 +67,17 @@ var _flash: MeshInstance3D
 var _flash_light: OmniLight3D
 var _flash_time: float = 0.0
 var _layer: int = 0
+var _models: Dictionary = {}  ## WeaponData -> model Node3D (built once)
+var _mount: Basis = Basis.IDENTITY
 
 
 func setup(p_player: Player, layer_bit: int) -> void:
 	player = p_player
 	_layer = layer_bit
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
-	position = HIP_POS
-	scale = Vector3.ONE * MODEL_SCALE
 	set_process(false)  # the camera rig calls update() in order
-	_build_model()
+	muzzle = Node3D.new()  # placeholder until set_weapon() picks a model
+	add_child(muzzle)
 
 	_flash = MeshInstance3D.new()
 	var quad := QuadMesh.new()
@@ -71,19 +94,60 @@ func setup(p_player: Player, layer_bit: int) -> void:
 	_flash.layers = _layer
 	_flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_flash.visible = false
-	muzzle.add_child(_flash)
+	add_child(_flash)
 
 	_flash_light = OmniLight3D.new()
 	_flash_light.light_color = Color(1.0, 0.75, 0.45)
 	_flash_light.omni_range = 6.0
 	_flash_light.light_energy = 0.0
 	_flash_light.shadow_enabled = false
-	muzzle.add_child(_flash_light)
+	add_child(_flash_light)
 
 	player.motor.landed.connect(func(impact: float) -> void:
 		_land_vel -= clampf(impact, 0.0, 25.0) * 0.012)
 	player.motor.jumped.connect(func(_k: int) -> void:
 		_land_vel += 0.12)
+
+
+## Shows `d`'s model (building it the first time) and takes its sockets.
+func set_weapon(d: WeaponData) -> void:
+	data = d
+	if not _models.has(d):
+		_models[d] = _build_model(d.model if d.model else RIFLE_MODEL, d)
+	for m: Node3D in _models.values():
+		m.visible = m == _models[d]
+	model_root = _models[d]
+	scale = Vector3.ONE * d.model_scale
+	_mount = Basis.from_euler(d.model_rot_deg * (PI / 180.0))
+	model_root.basis = _mount
+	grip_r = model_root.find_child("GripR") as Node3D
+	grip_l = model_root.find_child("GripL") as Node3D
+	if grip_l == null:
+		grip_l = grip_r  # blades: one hand
+	muzzle = model_root.find_child("Muzzle") as Node3D
+	if muzzle == null:
+		muzzle = model_root.find_child("Tip") as Node3D
+	if muzzle == null:
+		muzzle = model_root
+	_flash.reparent(muzzle, false)
+	_flash_light.reparent(muzzle, false)
+	_flash.position = Vector3.ZERO
+	_flash_light.position = Vector3.ZERO
+
+
+func is_blade() -> bool:
+	return data != null and data.kind == WeaponData.Kind.MELEE
+
+
+## World-space blade base and tip (for the slash trail), or empty if no blade.
+func blade_points() -> PackedVector3Array:
+	if model_root == null:
+		return PackedVector3Array()
+	var base := model_root.find_child("Base") as Node3D
+	var tip := model_root.find_child("Tip") as Node3D
+	if base == null or tip == null:
+		return PackedVector3Array()
+	return PackedVector3Array([base.global_position, tip.global_position])
 
 
 func kick(strength: float) -> void:
@@ -138,9 +202,9 @@ func update(delta: float) -> void:
 	var bob := Vector3(cos(phase) * bob_amt, -absf(sin(phase)) * bob_amt, 0.0)
 
 	var ease_ads := ads_amount * ads_amount * (3.0 - 2.0 * ads_amount)
-	var base_two := HIP_POS.lerp(SPRINT_POS, _sprint)
-	var base_one := HIP1_POS.lerp(SPRINT1_POS, _sprint)
-	var base := base_one.lerp(base_two, sup).lerp(ADS_POS, ease_ads)
+	var base_two := data.hip_pos.lerp(data.sprint_pos, _sprint)
+	var base_one := data.hip1_pos.lerp(data.sprint1_pos, _sprint)
+	var base := base_one.lerp(base_two, sup).lerp(data.ads_pos, ease_ads)
 
 	# Traversal poses: the gun makes room for the hands (DESIGN: "hands come out").
 	var pose_pos := Vector3.ZERO
@@ -181,22 +245,90 @@ func update(delta: float) -> void:
 	var carry_one := Vector3(deg_to_rad(-12.0), deg_to_rad(4.0), deg_to_rad(-4.0))
 	var carry := carry_one.lerp(carry_two, sup) * _sprint
 
-	position = base + bob + swing + _pose_pos + Vector3(-_sway.x * 0.35, _sway.y * 0.25 + _land, _kick * 0.06)
-	var toward_center := deg_to_rad(2.5) * (1.0 - ease_ads)  # hip: muzzle angled slightly toward the crosshair
-	rotation = Vector3(_kick * 0.35, toward_center + _sway.x * 0.8, _tilt + _sway.x * 0.4) + carry + swing_rot + _pose_rot
+	var sway_pos := Vector3(-_sway.x * 0.35, _sway.y * 0.25 + _land, _kick * 0.06)
+	# Switch: drop the weapon down and roll it away (and back up on the raise).
+	var low := lower * lower * (3.0 - 2.0 * lower)
+	var lower_pos := Vector3(0.05, -0.3, 0.12) * low
+	var lower_rot := Basis.from_euler(Vector3(deg_to_rad(-45.0), deg_to_rad(10.0), deg_to_rad(-20.0)) * low)
+	if is_blade():
+		# Blades: the swing arc drives the pose; sway, bob and the run pump ride on top.
+		var pose := _blade_pose()
+		var ride := Basis.from_euler(Vector3(_sway.y * 0.6 + PUMP_PITCH * s * stride * 0.5, _sway.x * 0.8, _tilt * 0.5 + _sway.x * 0.4))
+		transform = Transform3D(lower_rot * ride * pose.basis, pose.origin + bob + _pose_pos * 0.5 + sway_pos + lower_pos + swing_one * stride * 0.5)
+	else:
+		# Bolt cycle: the gun rolls and dips while the bolt is worked.
+		var cyc := sin(PI * clampf(1.0 - cycle, 0.0, 1.0)) if cycle > 0.0 else 0.0
+		cyc *= 1.0 - ease_ads * 0.6
+		var cycle_rot := Vector3(deg_to_rad(-6.0), deg_to_rad(4.0), deg_to_rad(22.0)) * cyc
+		position = base + bob + swing + _pose_pos + sway_pos + lower_pos + Vector3(0.0, -0.03, 0.02) * cyc
+		var toward_center := deg_to_rad(2.5) * (1.0 - ease_ads)  # hip: muzzle angled slightly toward the crosshair
+		rotation = Vector3(_kick * 0.35, toward_center + _sway.x * 0.8, _tilt + _sway.x * 0.4) + carry + swing_rot + _pose_rot + cycle_rot
+		basis = lower_rot * basis
+	scale = Vector3.ONE * data.model_scale
+	scoped_in = data.scoped and ads_amount >= data.scope_in_at
+	if model_root:
+		model_root.visible = not scoped_in
 
 	if _flash_time > 0.0:
 		_flash_time -= delta
 		if _flash_time <= 0.0:
 			_flash.visible = false
 			_flash_light.light_energy = 0.0
+	if trail:
+		trail.sample(delta)
 
 
-## Instances the Blender carbine and converts its materials to the viewmodel
-## shader (depth-squashed so the gun never clips into walls). "Accent" parts
-## glow in the player's color.
-func _build_model() -> void:
-	var model: Node3D = MODEL.instantiate()
+## Blade pose (camera space) along the current swing arc, or at rest.
+## Keys: rest → windup → strike (at strike_at) → follow-through → rest. The
+## blade's edge leads the motion.
+func _blade_pose() -> Transform3D:
+	var rest_pos := data.hip_pos
+	var rest_dir := BLADE_IDLE_DIR.normalized()
+	if swing_t < 0.0:
+		return _blade_basis(rest_pos, rest_dir, Vector3(-1, 0, 0))
+	var keys: Array = SWINGS[swing_index % SWINGS.size()]
+	var start_pos := rest_pos + (Vector3(0.05, -0.35, 0.1) if swing_from_low else Vector3.ZERO)
+	var poses := [[start_pos, rest_dir], keys[0], keys[1], keys[2], [rest_pos, rest_dir]]
+	var times := [0.0, minf(0.14, data.strike_at * 0.5), data.strike_at, minf(data.strike_at + 0.25, 0.9), 1.0]
+	var p := _sample(poses, times, swing_t)
+	var ahead := _sample(poses, times, minf(swing_t + 0.03, 1.0))
+	var edge: Vector3 = (ahead[1] as Vector3) - (p[1] as Vector3)
+	return _blade_basis(p[0], p[1], edge if edge.length() > 0.01 else Vector3(-1, 0, 0))
+
+
+static func _sample(poses: Array, times: Array, t: float) -> Array:
+	for i in times.size() - 1:
+		if t <= times[i + 1] or i == times.size() - 2:
+			var f := clampf((t - times[i]) / maxf(times[i + 1] - times[i], 0.001), 0.0, 1.0)
+			f = f * f * (3.0 - 2.0 * f)
+			var a: Array = poses[i]
+			var b: Array = poses[i + 1]
+			var da := (a[1] as Vector3).normalized()
+			var db := (b[1] as Vector3).normalized()
+			var dir := da.slerp(db, f) if da.dot(db) > -0.99 else da.lerp(db, f).normalized()
+			return [(a[0] as Vector3).lerp(b[0], f), dir]
+	return poses[-1]
+
+
+## Viewmodel basis that points the mounted blade along `dir` with its edge
+## toward `edge` (the blade stands out of the fist at the mount angle).
+func _blade_basis(pos: Vector3, dir: Vector3, edge: Vector3) -> Transform3D:
+	var d := dir.normalized()
+	var e := edge - d * edge.dot(d)
+	if e.length() < 0.01:
+		e = Vector3.UP - d * d.y
+	var m := _mount * Vector3.FORWARD  # blade direction in the viewmodel frame
+	var em := _mount * Vector3.UP       # edge direction in the viewmodel frame
+	var want := Basis.looking_at(d, e.normalized())
+	var have := Basis.looking_at(m, em)
+	return Transform3D(want * have.inverse(), pos)
+
+
+## Instances a weapon model and converts its materials to the viewmodel
+## shader (depth-squashed so it never clips into walls). "Accent" parts glow
+## in the player's color.
+func _build_model(scene: PackedScene, d: WeaponData) -> Node3D:
+	var model: Node3D = scene.instantiate()
 	add_child(model)
 	var shader := preload("res://shaders/viewmodel.gdshader")
 	var color := RunnerAvatar.PLAYER_COLORS[player.player_index % RunnerAvatar.PLAYER_COLORS.size()]
@@ -221,10 +353,9 @@ func _build_model() -> void:
 					m.set_shader_parameter(&"emission", color)
 					m.set_shader_parameter(&"emission_energy", 4.0)
 			mi.set_surface_override_material(i, m)
-	grip_r = model.find_child("GripR") as Node3D
-	grip_l = model.find_child("GripL") as Node3D
-	muzzle = model.find_child("Muzzle") as Node3D
-	if muzzle == null:
-		muzzle = Node3D.new()
-		muzzle.position = Vector3(0, 0.07, -0.73)
-		model.add_child(muzzle)
+	if d.kind == WeaponData.Kind.HITSCAN and model.find_child("Muzzle") == null:
+		var mz := Node3D.new()
+		mz.name = "Muzzle"
+		mz.position = Vector3(0, 0.07, -0.73)
+		model.add_child(mz)
+	return model

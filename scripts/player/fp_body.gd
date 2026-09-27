@@ -170,7 +170,7 @@ static func _vm_mat(shader: Shader, color: Color, rough: float, metal: float) ->
 
 ## Called by the camera rig every frame after it has placed the camera.
 func sync(delta: float) -> void:
-	visible = active
+	visible = active and not viewmodel.scoped_in  # scoped in: the scope view takes the screen
 	anim.active = active
 	for m in [_pose, _ik_r, _ik_l, _hand_rot]:
 		(m as SkeletonModifier3D).active = active

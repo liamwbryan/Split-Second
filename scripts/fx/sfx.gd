@@ -90,7 +90,7 @@ func _build() -> void:
 const SOUND_NAMES: Array[StringName] = [
 	&"shot", &"hit", &"head", &"kill", &"jump", &"double_jump", &"land", &"step", &"slide",
 	&"kick", &"mantle", &"grapple_fire", &"grapple_attach", &"grapple_release", &"denied",
-	&"reload", &"wind",
+	&"reload", &"wind", &"rail", &"bolt", &"slash", &"slash_hit", &"lunge", &"long_shot", &"swap",
 ]
 
 
@@ -113,14 +113,26 @@ func synthesize_all() -> void:
 	_streams[&"denied"] = _wav(_tone([140.0, 147.0], 0.12, 0.35, 20.0))
 	_streams[&"reload"] = _wav(_mix(_click(0.0), _click(0.22)))
 	_streams[&"wind"] = _wav(_wind_loop())
+	# Weapons (M2). Rail: a hard crack, a deep boom and a rising electric whine.
+	_streams[&"rail"] = _wav(_mix(_mix(_gunshot(), _thump(70.0, 30.0, 0.35, 0.9)), _chirp(900.0, 2600.0, 0.18, 0.18)))
+	_streams[&"bolt"] = _wav(_mix(_mix(_click(0.0), _click(0.11)), _noise_env(0.06, 0.2, 2200.0, 60.0)))
+	_streams[&"slash"] = _wav(_noise_env(0.2, 0.45, 5000.0, 16.0))
+	_streams[&"slash_hit"] = _wav(_mix(_mix(_thump(110.0, 45.0, 0.16, 1.0), _noise_env(0.12, 0.45, 1500.0, 30.0)), _tone([1800.0, 2700.0], 0.06, 0.25, 60.0)))
+	_streams[&"lunge"] = _wav(_mix(_noise_env(0.26, 0.4, 2400.0, 9.0), _chirp(180.0, 420.0, 0.2, 0.2)))
+	_streams[&"long_shot"] = _wav(_tone([1320.0, 1980.0, 2640.0, 3300.0], 0.35, 0.45, 9.0))
+	_streams[&"swap"] = _wav(_mix(_click(0.0), _noise_env(0.08, 0.2, 1800.0, 40.0)))
 
 
-## Writes every synthesized sound to assets/sfx (called by tools/bake_sfx.gd).
-func bake(dir: String) -> void:
+## Writes synthesized sounds to assets/sfx (called by tools/bake_sfx.gd).
+## Existing files are kept (noise is random, so re-baking would change them);
+## pass `overwrite` to redo them all.
+func bake(dir: String, overwrite: bool = false) -> void:
 	synthesize_all()
 	DirAccess.make_dir_recursive_absolute(dir)
 	for sound: StringName in SOUND_NAMES:
-		(_streams[sound] as AudioStreamWAV).save_to_wav("%s/%s.wav" % [dir, sound])
+		var path := "%s/%s.wav" % [dir, sound]
+		if overwrite or not FileAccess.file_exists(path):
+			(_streams[sound] as AudioStreamWAV).save_to_wav(path)
 
 
 # --------------------------------------------------------------------------- synthesis

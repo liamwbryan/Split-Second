@@ -19,21 +19,25 @@ signal grapple_missed
 ## boost it paid out (m/s). Presentation only; the motor never listens.
 signal momentum_linked(flow: float)
 signal momentum_boosted(amount: float)
+## Melee lunge ended: `reached` = stopped at the target (strike now).
+signal lunge_finished(reached: bool)
 
-enum State { GROUND, AIR, SLIDE, WALLRUN, WALLCLIMB, MANTLE, GRAPPLE }
+enum State { GROUND, AIR, SLIDE, WALLRUN, WALLCLIMB, MANTLE, GRAPPLE, LUNGE }
 enum JumpKind { GROUND, DOUBLE, WALL_KICK, CLIMB_KICK, SLIDE_HOP, CLIMB_HOP }
 
-const STATE_NAMES: Array[String] = ["Ground", "Air", "Slide", "WallRun", "WallClimb", "Mantle", "Grapple"]
+const STATE_NAMES: Array[String] = ["Ground", "Air", "Slide", "WallRun", "WallClimb", "Mantle", "Grapple", "Lunge"]
 
 ## Allowed transitions. Anything else is a bug and asserts in debug builds.
+## LUNGE (melee): a short dash to a target, entered only through start_lunge().
 const TRANSITIONS := {
-	State.GROUND: [State.AIR, State.SLIDE, State.MANTLE, State.GRAPPLE],
-	State.AIR: [State.GROUND, State.SLIDE, State.WALLRUN, State.WALLCLIMB, State.MANTLE, State.GRAPPLE],
-	State.SLIDE: [State.GROUND, State.AIR, State.MANTLE, State.GRAPPLE],
-	State.WALLRUN: [State.AIR, State.GROUND, State.SLIDE, State.MANTLE, State.GRAPPLE],
+	State.GROUND: [State.AIR, State.SLIDE, State.MANTLE, State.GRAPPLE, State.LUNGE],
+	State.AIR: [State.GROUND, State.SLIDE, State.WALLRUN, State.WALLCLIMB, State.MANTLE, State.GRAPPLE, State.LUNGE],
+	State.SLIDE: [State.GROUND, State.AIR, State.MANTLE, State.GRAPPLE, State.LUNGE],
+	State.WALLRUN: [State.AIR, State.GROUND, State.SLIDE, State.MANTLE, State.GRAPPLE, State.LUNGE],
 	State.WALLCLIMB: [State.AIR, State.GROUND, State.SLIDE, State.MANTLE, State.GRAPPLE],
 	State.MANTLE: [State.AIR],
 	State.GRAPPLE: [State.AIR, State.GROUND, State.SLIDE, State.MANTLE],
+	State.LUNGE: [State.AIR, State.GROUND],
 }
 
 const CAPSULE_RADIUS := 0.4
@@ -182,6 +186,7 @@ func physics_step(delta: float) -> void:
 		State.WALLCLIMB: _tick_wallclimb(delta)
 		State.MANTLE: _tick_mantle(delta)
 		State.GRAPPLE: _tick_grapple(delta)
+		State.LUNGE: _tick_lunge(delta)
 
 	if state == State.MANTLE:
 		return  # mantle drives position directly along a path we already verified is clear
@@ -1246,6 +1251,64 @@ func _grapple_world_point() -> Vector3:
 static func mantle_lift_curve(p: float, lift_ease: float) -> float:
 	var x := clampf(p / 0.7, 0.0, 1.0)
 	return lerpf(1.0 - (1.0 - x) * (1.0 - x), x * x * (3.0 - 2.0 * x), lift_ease)
+
+
+# --------------------------------------------------------------------------- melee lunge
+
+var _lunge_target: Node3D
+var _lunge_speed: float = 0.0
+var _lunge_stop: float = 1.4
+var _lunge_max: float = 0.4
+var _lunge_keep: float = 0.35
+var _lunge_entry_speed: float = 0.0
+var _lunge_dir: Vector3 = Vector3.FORWARD
+
+
+## Melee lunge: dash toward `target` (its aim_point()) at `speed` until within
+## `stop_dist` (never through it) or `max_time` runs out. Returns false where a
+## lunge isn't allowed (mantle, climb, grapple). Momentum: on exit you keep
+## `exit_keep` of your entry speed, toward the target.
+func start_lunge(target: Node3D, speed: float, stop_dist: float, max_time: float, exit_keep: float) -> bool:
+	if not TRANSITIONS[state].has(State.LUNGE) or target == null:
+		return false
+	_lunge_target = target
+	_lunge_speed = speed
+	_lunge_stop = stop_dist
+	_lunge_max = max_time
+	_lunge_keep = exit_keep
+	_lunge_entry_speed = _h(player.velocity).length()
+	_set_state(State.LUNGE)
+	return true
+
+
+func lunge_goal() -> Vector3:
+	if not is_instance_valid(_lunge_target):
+		return player.global_position
+	if _lunge_target.has_method(&"aim_point"):
+		return _lunge_target.aim_point()
+	return _lunge_target.global_position
+
+
+func _tick_lunge(delta: float) -> void:
+	var to := lunge_goal() - (player.global_position + UP * CHEST_HEIGHT)
+	var dist := _h(to).length()
+	if not is_instance_valid(_lunge_target) or dist <= _lunge_stop + 0.02 or state_time >= _lunge_max:
+		_end_lunge(dist <= _lunge_stop + 0.3)
+		return
+	var dir := to.normalized()
+	_lunge_dir = _h(to).normalized()
+	# Never overshoot: the last step lands exactly at the stop distance.
+	var speed := minf(_lunge_speed, (dist - _lunge_stop) / maxf(delta, 0.0001) / maxf(_h(dir).length(), 0.1))
+	var v := dir * speed
+	v.y = clampf(v.y, -_lunge_speed * 0.6, _lunge_speed * 0.4)
+	player.velocity = v
+
+
+func _end_lunge(reached: bool) -> void:
+	var keep := _lunge_dir * _lunge_entry_speed * _lunge_keep
+	player.velocity = Vector3(keep.x, minf(player.velocity.y, 0.0) * 0.3, keep.z)
+	_set_state(State.GROUND if player.is_on_floor() else State.AIR)
+	lunge_finished.emit(reached)
 
 
 ## 0..1 through the current mantle/vault (0 outside a mantle).

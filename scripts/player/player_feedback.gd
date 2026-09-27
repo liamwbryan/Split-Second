@@ -49,6 +49,9 @@ func attach(p_player: Player) -> void:
 			Sfx.play(&"head", -4.0, 0.03)
 		else:
 			Sfx.play(&"hit", -6.0, 0.05))
+	player.weapon.hit_detail.connect(func(is_head: bool, killed: bool, _distance: float, long_shot: bool) -> void:
+		if (long_shot and (is_head or killed)) or (player.weapon.data.scoped and is_head):
+			Sfx.play(&"long_shot", -6.0, 0.0, 1.0 if is_head else 0.85))
 	_wind = Sfx.make_loop(&"wind", self, Sfx.WIND_BUS)
 
 

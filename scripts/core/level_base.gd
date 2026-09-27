@@ -75,7 +75,8 @@ func _ready() -> void:
 	overlay.setup(player, ui_scale)
 	panel = TuningPanel.new()
 	ui.add_child(panel)
-	panel.setup({"Movement": tuning, "Player": settings, "Rifle": player.weapon.data}, ui_scale)
+	var lo := player.loadout
+	panel.setup({"Movement": tuning, "Player": settings, "Rifle": lo.weapons[0], "Rail": lo.weapons[1], "Blade": lo.weapons[2], "Knife": lo.knife}, ui_scale)
 	panel.visibility_toggled.connect(_on_panel_toggled)
 	player.hud.toast(intro_hint(), 6.0)
 	_update_avatar_visibility()

@@ -37,10 +37,13 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 
 ## M2 — Gunplay Core
 - Weapon framework (`WeaponData`): hitscan + projectile, fire modes, magazines/reload, ADS, patterned recoil, movement-aware spread
+  - [x] Slots and switching (`Loadout`: primary / secondary / blade, knife quick melee; 1/2/3, wheel, pad Y, V / R3), data-driven viewmodel per weapon
 - Roster: rifle, SMG, shotgun, rail sniper, sidearm, boost launcher
+  - [x] Rail sniper (scope, bolt cadence, rail beam, long-shot callouts)
+  - [ ] SMG (Liam: the rifle may turn SMG-like), shotgun, sidearm, boost launcher
 - Feedback stack: hitmarkers, headshots, kill freeze, audio layers, viewmodel sway/bob/tilt, impact effects (pooled)
 - [x] Gamepad aim assist (slowdown + rotational), with tunable presets (`AimAssist`, PlayerSettings; `tests/aim_assist_tests.tscn`). Players join the `aim_target` group in M3, with a lighter FFA preset.
-- Melee lunge
+- [x] Melee: Arc Blade + knife, 3-hit combo, lunge (`PlayerMotor.State.LUNGE`), slide/air style damage, hit-stop, slash trail (`tests/weapon_tests.tscn`)
 
 **Exit:** each gun has a distinct role and feels punchy. Shooting while wall-running is a highlight, not a compromise.
 

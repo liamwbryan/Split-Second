@@ -5,6 +5,7 @@
 #   tests/run_tests.sh aim          aim assist tests only (aim:slowdown_near_target for one)
 #   tests/run_tests.sh spiral       SPIRAL route checks only
 #   tests/run_tests.sh pendulum     PENDULUM HALL checks only
+#   tests/run_tests.sh weapons      weapon tests only (weapon:lunge_closes_distance for one)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -26,6 +27,16 @@ if [[ $# -eq 0 || "$1" == aim* ]]; then
 		| grep -vE "^\s*$|ObjectDB instances|Godot Engine v|at: cleanup|at: clear|resources still in use"
 	aim="${PIPESTATUS[0]}"
 	[[ "$aim" != 0 && "$status" == 0 ]] && status="$aim"
+fi
+# Weapons (slots, rail sniper, blade melee and lunge).
+if [[ $# -eq 0 || "$1" == weapon* ]]; then
+	WPN_ARGS=()
+	[[ $# -gt 0 && "$1" != "weapons" ]] && WPN_ARGS=(++ "--only=${1#weapon:}")
+	perl -e 'alarm shift; exec @ARGV' 240 \
+		"$GODOT" --headless --path . --fixed-fps 120 res://tests/weapon_tests.tscn ${WPN_ARGS[@]+"${WPN_ARGS[@]}"} 2>&1 \
+		| grep -vE "^\s*$|ObjectDB instances|Godot Engine v|at: cleanup|at: clear|resources still in use"
+	wpn="${PIPESTATUS[0]}"
+	[[ "$wpn" != 0 && "$status" == 0 ]] && status="$wpn"
 fi
 # SPIRAL route checks (pads, the Express helix, drop-in, outside car).
 if [[ $# -eq 0 || "$1" == spiral ]]; then

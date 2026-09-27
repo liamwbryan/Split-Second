@@ -27,4 +27,5 @@ First-person parkour shooter for macOS (Windows later, so keep code portable) in
 ## First-person body
 - `FPBody` is the owner-only first-person body. Its arms use the gun's shader FOV (`FPBody.FP_FOV`, which must match the gun's material) and IK to the gun sockets or world contacts. Contact targets go through `_prewarp`.
 - The third-person `RunnerAvatar` always animates, because it casts the owner's shadow. The FP body casts no shadow.
-- Check poses with `tests/fp_shots.tscn` screenshots rather than guessing.
+- Check poses with `tests/fp_shots.tscn` screenshots rather than guessing (shots 13–15 cover the sniper, blade swings and knife).
+- Every weapon model has a `GripR` socket (guns also have `GripL` and `Muzzle`; blades have `Base`/`Tip` for the slash trail). The viewmodel positions come from each `WeaponData`. Blades use a mount rotation (`model_rot_deg`) that stands them up out of the fist like a pistol grip, so the right hand's grip basis works for every weapon.

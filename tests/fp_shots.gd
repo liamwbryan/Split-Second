@@ -117,6 +117,14 @@ func wait_state(state: int, extra: float, timeout: float = 3.0) -> bool:
 	return true
 
 
+## Waits until the blade swing reaches `t` (0..1).
+func _wait_swing(vm: Viewmodel, t: float) -> void:
+	for i in 120:
+		if vm.swing_t >= t:
+			return
+		await get_tree().physics_frame
+
+
 func _capture_all() -> void:
 	await reset(Vector3(0, 0, 20))
 	await seconds(0.3)
@@ -210,6 +218,38 @@ func _capture_all() -> void:
 		await shot("10e_swing_third")
 		player.camera_rig.third_person = false
 		hold(A.GRAPPLE, false)
+
+	# Weapons (M2): the rail sniper at the hip, mid-ADS and scoped; the blade at
+	# rest and through a combo; the knife quick melee from the carbine.
+	await reset(Vector3(0, 0, 20))
+	await tap(A.SLOT2)
+	await seconds(0.6)
+	await shot("13_rail_idle")
+	hold(A.ADS)
+	await seconds(0.12)
+	await shot("13b_rail_ads_mid")
+	await seconds(0.4)
+	await shot("13c_rail_scoped")
+	hold(A.ADS, false)
+	await tap(A.SLOT3)
+	await seconds(0.6)
+	await shot("14_blade_idle")
+	var vm := player.weapon.viewmodel
+	var strike: float = player.loadout.current_data().strike_at
+	for k in 3:
+		await tap(A.FIRE)
+		await _wait_swing(vm, 0.13)
+		await shot("14%s_blade_swing%d_windup" % ["abc"[k], k])
+		await _wait_swing(vm, strike)
+		await shot("14%s_blade_swing%d_strike" % ["abc"[k], k])
+		while vm.swing_t >= 0.0:
+			await get_tree().physics_frame
+	await tap(A.SLOT1)
+	await seconds(0.6)
+	await tap(A.MELEE)
+	await seconds(0.07)
+	await shot("15_knife_quick")
+	await seconds(0.6)
 
 	# Grip close-ups: arms tinted light so the fingers read against the dark gun,
 	# seen from the right and from the front-left by a side camera.

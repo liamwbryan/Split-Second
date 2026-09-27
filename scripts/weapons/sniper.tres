@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/agent_sniper.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Rail"
+slot = 1
+model = ExtResource("2_model")
+model_scale = 0.85
+hip_pos = Vector3(0.15, -0.2, -0.38)
+hip1_pos = Vector3(0.15, -0.2, -0.38)
+ads_pos = Vector3(0, -0.132, -0.2)
+sprint_pos = Vector3(0.12, -0.25, -0.33)
+sprint1_pos = Vector3(0.12, -0.25, -0.33)
+draw_time = 0.32
+shot_sound = &"rail"
+shot_volume_db = -2.0
+damage = 95.0
+headshot_mult = 2.2
+max_range = 600.0
+falloff_near = 400.0
+falloff_far = 600.0
+falloff_min_mult = 1.0
+rpm = 48.0
+automatic = false
+magazine = 5
+reload_time = 2.2
+hip_spread = 4.5
+ads_spread = 0.0
+move_spread = 4.0
+air_spread = 5.0
+parkour_spread_mult = 0.7
+bloom_per_shot = 0.0
+bloom_max = 0.0
+recoil_pattern = PackedVector2Array(2.4, 0.3, 2.2, -0.4, 2.5, 0.2)
+recoil_loop_from = 0
+ads_recoil_mult = 0.8
+visual_punch = 3.0
+ads_time = 0.24
+ads_fov_mult = 0.28
+ads_sens_mult = 0.3
+scoped = true
+rail_tracer = true
+bolt_action = true
+long_shot_distance = 60.0
+one_hand_hip = false
