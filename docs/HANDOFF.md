@@ -57,7 +57,13 @@ Built this session (all merged, all tests green):
   - `Loadout`: carbine (1), scoped **rail sniper** (2), **Arc Blade** (3), plus a knife on V / R3.
   - Melee has a 3-hit combo, a lunge (motor `LUNGE` state), slide and air bonuses, and hit-stop.
   - **Gamepad aim assist** with Off/Low/Standard/Strong presets.
-- **Art:** crane lattice and billboard frame models. Every level block now has chamfered edges, plus shader edge highlights and panel seams. The Rooftops fill pass added cover props. The **city prop kit** agent (hover car, railings, barriers, crates, kiosks, neon sign rigs, pipes, cables) may still be running or waiting to merge; check `git branch` for `worktree-agent-*`.
+- **Art:** crane lattice and billboard frame models. Every level block now has chamfered edges, plus shader edge highlights and panel seams. The Rooftops fill pass added cover props. - **City prop kit (merged):** `art/blender/city_kit.py` builds 20 `kit_*.glb` models: hover car, baluster railing, barrier, crate, kiosk, charger, holo pylon, sign rigs, pipes, ducts, cables, fans, vents, lamps, benches, planters and bollards. They replace the box props in SPIRAL and Rooftops and add a dressing layer. Colliders are unchanged, and `KitPaint`/`KitSign` take per-instance colours.
+- **Chamfers and shader detail are skipped on Low** (`LevelBuilder.bevel_width`, the `surface_detail` global).
+- **Quiet bench at full Retina:**
+  - Rooftops: 196 fps on Low, 113 on Medium, ~71 on High.
+  - SPIRAL: ~150–180 on Low, ~67 on High.
+  - Pendulum Hall: 146 on Low, 65 on High.
+  - Rooftops' draw calls on High are 405. Merging the kit's materials into an atlas is the lever if the Windows PC struggles.
 - **Fixes:**
   - `Mover` angular velocity was about 0.1% of the truth (float32 `acos`), so wall-runs and mantles on rotating or swinging movers didn't follow the surface. Now uses `atan2`, with a test.
   - Sun and moon directions: a light shines along its −Z.
@@ -104,8 +110,8 @@ Built this session (all merged, all tests green):
    - **Momentum:** tick `momentum_enabled` in the Movement tab and run the gym's Momentum Lane. Keep it? Visible meter or feel-only?
    - **Aim assist:** Standard vs Strong on the Xbox pad.
 1. **AAA art pass** (`docs/ART_DIRECTION.md` §4):
-   - Merge the city kit agent's branch if it's not in yet, and re-bench (benches taken while an agent was running are unreliable).
-   - Then the museum kit for Pendulum Hall, a training-dummy model, weapons on the third-person avatar, and a detail pass on the gym.
+   - **Building facades are now the flattest thing on screen:** give them facade kit modules (window frames, ledges, balconies, AC cages, signage mounts), or a richer facade shader with recessed window depth.
+   - Then Rooftops' box vans (use the hover car), the museum kit for Pendulum Hall, a training-dummy model, weapons on the third-person avatar, structural trims, and a kit material atlas (fewer draw calls).
 2. **More maps** (`docs/MAP_BRIEFS.md`): finish Pendulum Hall (dressing, a timed par), then Spillway. Crosstrack needs a `linear` mover option first.
 3. **Liam: playtest the first-person arms.** Also judge the longer mantle: `mantle_time_base` went 0.16 → 0.24 s, so mantles now take 0.30–0.39 s. Both it and `mantle_camera_nod` are in the tuning panel.
    - Still weak: mantle and vault plants are on screen only briefly. The motor lifts the body about half-way in the first ~0.07 s (an ease-out up-curve), so the ledge drops below the frame. The real fix is a time-seeked climb animation, or a gentler up-curve, which is a movement-feel change for Liam to OK.
