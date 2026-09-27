@@ -38,7 +38,7 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 - Weapon framework (`WeaponData`): hitscan + projectile, fire modes, magazines/reload, ADS, patterned recoil, movement-aware spread
 - Roster: rifle, SMG, shotgun, rail sniper, sidearm, boost launcher
 - Feedback stack: hitmarkers, headshots, kill freeze, audio layers, viewmodel sway/bob/tilt, impact effects (pooled)
-- Gamepad aim assist (slowdown + rotational), with tunable presets
+- [x] Gamepad aim assist (slowdown + rotational), with tunable presets (`AimAssist`, PlayerSettings; `tests/aim_assist_tests.tscn`). Players join the `aim_target` group in M3, with a lighter FFA preset.
 - Melee lunge
 
 **Exit:** each gun has a distinct role and feels punchy. Shooting while wall-running is a highlight, not a compromise.

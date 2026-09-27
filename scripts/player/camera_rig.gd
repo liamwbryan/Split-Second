@@ -99,7 +99,7 @@ func add_trauma(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
-	player.apply_look(player.router.consume_look(delta), delta)
+	player.apply_look(player.aim_assist.apply(player.router.consume_look(delta), delta), delta)
 	_update_transform(delta)
 
 

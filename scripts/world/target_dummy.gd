@@ -24,6 +24,7 @@ const HEAD_COLOR := Color(1.0, 0.45, 0.15)
 
 
 func _ready() -> void:
+	add_to_group(AimAssist.GROUP)
 	health = max_health
 	_t = randf() * move_period
 	_pivot = Node3D.new()
@@ -56,6 +57,15 @@ func take_hit(damage: float, _point: Vector3, _dir: Vector3, _attacker: Node) ->
 		_dead_time = 0.0
 		return true
 	return false
+
+
+## Aim assist pulls toward the chest, and ignores a toppled dummy.
+func aim_point() -> Vector3:
+	return global_position + Vector3.UP * 1.15
+
+
+func is_targetable() -> bool:
+	return _dead_time < 0.0
 
 
 func _physics_process(delta: float) -> void:

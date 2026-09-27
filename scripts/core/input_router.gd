@@ -45,6 +45,14 @@ var settings: PlayerSettings
 var scripted: bool = false
 var scripted_move: Vector2 = Vector2.ZERO
 var scripted_held: Array[bool] = []
+var scripted_look: Vector2 = Vector2.ZERO   ## raw right stick, -1..1
+var scripted_mouse: Vector2 = Vector2.ZERO  ## mouse pixels per consume_look()
+
+## The stick's share of the last consume_look() (radians, after invert) and
+## its curved deflection 0..1. Aim assist reads and scales only this part, so
+## mouse aim is never assisted.
+var last_stick_look: Vector2 = Vector2.ZERO
+var last_stick_mag: float = 0.0
 
 var last_device_was_pad: bool = false
 
@@ -170,36 +178,45 @@ func move_vector() -> Vector2:
 
 ## Look delta in radians (x = yaw right, y = pitch down) for this render frame.
 ## Mouse is raw (no smoothing); stick uses a response curve and edge boost.
+## The stick's share is also left in last_stick_look / last_stick_mag, the only
+## part aim assist may touch.
 func consume_look(delta: float) -> Vector2:
-	var look := Vector2.ZERO
+	var mouse := scripted_mouse
+	var stick := scripted_look
 	if not scripted:
-		look += _mouse_delta * settings.mouse_sensitivity
+		mouse = _mouse_delta
 		_mouse_delta = Vector2.ZERO
-		var stick := Vector2.ZERO
+		stick = Vector2.ZERO
 		for device in _active_pads():
 			var s := Vector2(Input.get_joy_axis(device, JOY_AXIS_RIGHT_X), Input.get_joy_axis(device, JOY_AXIS_RIGHT_Y))
 			if s.length() > stick.length():
 				stick = s
-		stick = _radial_deadzone(stick, settings.pad_inner_deadzone, settings.pad_outer_deadzone)
-		var mag := stick.length()
-		if mag > 0.0:
-			var curved := pow(mag, settings.pad_response_curve)
-			stick = stick / mag * curved
-			# Holding the stick at the edge ramps up yaw so fast turns are possible
-			# without making fine aim twitchy.
-			if absf(stick.x) > 0.97:
-				_edge_hold_time += delta
-			else:
-				_edge_hold_time = 0.0
-			var ramp := clampf((_edge_hold_time - settings.pad_edge_boost_delay) / maxf(settings.pad_edge_boost_ramp, 0.001), 0.0, 1.0)
-			var yaw_mult := lerpf(1.0, settings.pad_edge_yaw_boost, ramp)
-			look.x += stick.x * deg_to_rad(settings.pad_yaw_speed) * yaw_mult * delta
-			look.y += stick.y * deg_to_rad(settings.pad_pitch_speed) * delta
+	var look := mouse * settings.mouse_sensitivity
+	var stick_look := Vector2.ZERO
+	stick = _radial_deadzone(stick, settings.pad_inner_deadzone, settings.pad_outer_deadzone)
+	var mag := stick.length()
+	last_stick_mag = 0.0
+	if mag > 0.0:
+		var curved := pow(mag, settings.pad_response_curve)
+		last_stick_mag = curved
+		stick = stick / mag * curved
+		# Holding the stick at the edge ramps up yaw so fast turns are possible
+		# without making fine aim twitchy.
+		if absf(stick.x) > 0.97:
+			_edge_hold_time += delta
 		else:
 			_edge_hold_time = 0.0
+		var ramp := clampf((_edge_hold_time - settings.pad_edge_boost_delay) / maxf(settings.pad_edge_boost_ramp, 0.001), 0.0, 1.0)
+		var yaw_mult := lerpf(1.0, settings.pad_edge_yaw_boost, ramp)
+		stick_look.x = stick.x * deg_to_rad(settings.pad_yaw_speed) * yaw_mult * delta
+		stick_look.y = stick.y * deg_to_rad(settings.pad_pitch_speed) * delta
+	else:
+		_edge_hold_time = 0.0
 	if settings.invert_y:
 		look.y = -look.y
-	return look
+		stick_look.y = -stick_look.y
+	last_stick_look = stick_look
+	return look + stick_look
 
 
 func _poll_held(action: int) -> bool:

@@ -20,6 +20,7 @@ var camera_rig: CameraRig
 var weapon: HitscanWeapon
 var hud: PlayerHud
 var avatar: RunnerAvatar
+var aim_assist: AimAssist
 
 var spawn_position: Vector3 = Vector3.ZERO
 var spawn_yaw: float = 0.0
@@ -65,6 +66,9 @@ func setup(index: int, p_router: InputRouter, p_tuning: MovementTuning, view_roo
 	weapon.setup(self, camera_rig, preload("res://scripts/weapons/rifle.tres"))
 	camera_rig.attach_fp_body(weapon.viewmodel)
 
+	aim_assist = AimAssist.new()
+	aim_assist.setup(self)
+
 	avatar = RunnerAvatar.new()
 	add_child(avatar)
 	avatar.setup(self, avatar_layer_bit())
@@ -97,6 +101,7 @@ func respawn() -> void:
 	yaw = spawn_yaw
 	pitch = 0.0
 	_turn_active = false
+	aim_assist.reset()
 	reset_physics_interpolation()
 	camera_rig.snap()
 	respawned.emit()
@@ -112,6 +117,7 @@ func _physics_process(delta: float) -> void:
 		return
 	motor.physics_step(delta)
 	weapon.physics_step(delta)
+	aim_assist.physics_step(delta)
 	if global_position.y < -60.0:
 		respawn()
 
