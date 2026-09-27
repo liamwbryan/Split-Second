@@ -60,6 +60,7 @@ A first-person parkour shooter (Titanfall 2 movement and gunplay, Mirror's Edge 
   - The level lint checks each gate has a floor and fits a player.
 
 ## Known issues / next steps (in order)
+0. **New maps: see `docs/MAP_BRIEFS.md`.** It has Liam's map direction (futuristic, huge scale, fun over realism), the movement numbers to build to, and nine map briefs in build order, starting with SPIRAL. It also lists the design questions to ask him first.
 1. **Liam: playtest the first-person arms.** Also judge the longer mantle: `mantle_time_base` went 0.16 → 0.24 s, so mantles now take 0.30–0.39 s. Both it and `mantle_camera_nod` are in the tuning panel.
    - Still weak: mantle and vault plants are on screen only briefly. The motor lifts the body about half-way in the first ~0.07 s (an ease-out up-curve), so the ledge drops below the frame. The real fix is a time-seeked climb animation, or a gentler up-curve, which is a movement-feel change for Liam to OK.
    - Sprint shows the clip's pumping left hand at the bottom-left. The right hand hides under the lowered gun.
