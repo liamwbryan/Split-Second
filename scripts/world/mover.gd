@@ -88,9 +88,22 @@ func _physics_process(delta: float) -> void:
 	var next := sample(_t)
 	global_transform = next
 	linear_velocity = (next.origin - prev.origin) / delta
-	var dq := Quaternion(next.basis.orthonormalized()) * Quaternion(prev.basis.orthonormalized()).inverse()
-	var angle := dq.get_angle()
-	angular_velocity = dq.get_axis() * (angle / delta) if angle > 0.00001 else Vector3.ZERO
+	angular_velocity = rotation_rate(prev.basis, next.basis, delta)
+
+
+## Angular velocity (rad/s, world axis) that turns basis `from` into `to` in
+## `dt`. Uses the quaternion's vector part (atan2), not get_angle(): per-tick
+## rotations are ~0.003 rad, where acos(w) of a float32 quaternion loses almost
+## all precision (it read a 0.33 rad/s swing as 0.0005).
+static func rotation_rate(from: Basis, to: Basis, dt: float) -> Vector3:
+	var dq := Quaternion(to.orthonormalized()) * Quaternion(from.orthonormalized()).inverse()
+	if dq.w < 0.0:
+		dq = -dq  # shortest arc
+	var v := Vector3(dq.x, dq.y, dq.z)
+	var s := v.length()
+	if s < 1e-9:
+		return Vector3.ZERO
+	return v / s * (2.0 * atan2(s, dq.w) / dt)
 
 
 func _leg_count() -> int:

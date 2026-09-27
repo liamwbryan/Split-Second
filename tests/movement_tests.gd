@@ -105,6 +105,17 @@ func _build_course() -> void:
 	wall_mover.move_time = 8.0
 	wall_mover.pause_time = 0.0
 	b.attach_box(wall_mover, Vector3(0, 3.5, 0), Vector3(0.6, 7, 50), T.RUN)
+	# 2300: a rotator (60°/s about y) and a swing (30°, 10 s, 20 m arm) for velocity_at().
+	var spinner := b.mover(Vector3(2300, 0, -20), Mover.Mode.ROTATE)
+	movers["spinner"] = spinner
+	spinner.rotate_speed_deg = 60.0
+	b.attach_box(spinner, Vector3(0, 3, 0), Vector3(10, 6, 0.5), T.RUN)
+	var swing := b.mover(Vector3(2320, 30, -20), Mover.Mode.SWING)
+	movers["swing"] = swing
+	swing.axis = Vector3.RIGHT
+	swing.swing_amplitude_deg = 30.0
+	swing.period = 10.0
+	b.attach_box(swing, Vector3(0, -20, 0), Vector3(3, 0.5, 3), T.BOOST)
 	# 1900: tall climb wall (8 m) facing +Z at z=-3.
 	b.block(Vector3(1895, 0, -30), Vector3(1905, 8, -3), T.RUN)
 	# 1500: long wall on the right to run beside on the ground.
@@ -121,7 +132,7 @@ func _run_all() -> void:
 		"grapple", "coyote_jump", "jump_buffer_bhop", "ramp_slide_accel", "chimney",
 		"corridor_chain", "grapple_into_mantle", "wall_coyote_kick", "ground_wall_no_snag",
 		"shoot_dummy", "slide_release_stands", "ride_lift", "jump_off_moving_platform", "wallrun_moving_wall", "keyboard_bindings", "keyboard_grapple", "grapple_release", "grapple_tap_yank",
-		"fp_arms", "course_run", "climb_jump_direction", "mantle_lift_gentle",
+		"fp_arms", "course_run", "climb_jump_direction", "mover_surface_velocity", "mantle_lift_gentle",
 		"momentum_off_identical", "momentum_chain_builds", "momentum_raises_cap", "momentum_kick_boost",
 		"momentum_wallrun_keeps_speed", "momentum_slide_landing", "momentum_slide_hop_bounded",
 		"swing_rope_holds", "swing_release_keeps_velocity", "swing_steer", "swing_payout",
@@ -1187,3 +1198,22 @@ func test_grapple_visuals() -> void:
 	await seconds(0.6)
 	check("cable reeled back in after release", not rope.visible and not gun.hook_out, "visible %s phase %d" % [rope.visible, rope.phase])
 	check("launcher lowered out of view", gun.raise < 0.01 and not gun.visible, "raise %.2f" % gun.raise)
+
+
+## Rotating and swinging movers must report their real surface speed
+## (wall-runs, climbs and mantles on them read velocity_at). Regression: the
+## angle came from acos(w) of a float32 quaternion and read ~0.1% of the truth.
+func test_mover_surface_velocity() -> void:
+	await ticks(3)
+	var spinner: Mover = movers["spinner"]
+	var p := spinner.global_position + spinner.global_transform.basis.x * 5.0
+	var v := spinner.velocity_at(p).length()
+	var want := deg_to_rad(60.0) * 5.0
+	check("rotator velocity_at matches ω·r", absf(v - want) < want * 0.05, "%.3f vs %.3f m/s" % [v, want])
+	var swing: Mover = movers["swing"]
+	swing.restart()
+	await ticks(2)  # t≈0: bottom of the swing, peak speed
+	var bob := swing.global_transform * Vector3(0, -20, 0)
+	var sv := swing.velocity_at(bob).length()
+	var peak := deg_to_rad(30.0) * TAU / 10.0 * 20.0
+	check("swing velocity_at matches its peak speed", absf(sv - peak) < peak * 0.05, "%.3f vs %.3f m/s" % [sv, peak])
