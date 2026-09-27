@@ -111,7 +111,8 @@ func add_trauma(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
-	player.apply_look(player.aim_assist.apply(player.router.consume_look(delta), delta), delta)
+	var look := player.aim_assist.apply(player.router.consume_look(delta), delta)
+	player.apply_look(look * player.weapon.look_scale(), delta)
 	_update_transform(delta)
 
 

@@ -50,8 +50,10 @@ func _define_keyboard_actions() -> void:
 		&"kb_sprint": [KEY_SHIFT],
 		&"kb_grapple": [KEY_Q],            # tactical ability
 		&"kb_reload": [KEY_R],
-		&"kb_melee": [KEY_V],
-		&"kb_swap": [KEY_1, KEY_2],
+		&"kb_melee": [KEY_V],              # quick melee
+		&"kb_slot1": [KEY_1],              # primary
+		&"kb_slot2": [KEY_2],              # secondary
+		&"kb_slot3": [KEY_3],              # melee weapon
 		&"kb_reset": [KEY_T],
 		&"kb_menu": [KEY_ESCAPE],
 		&"debug_panel": [KEY_QUOTELEFT],   # ` like the Source dev console
@@ -70,7 +72,8 @@ func _define_keyboard_actions() -> void:
 	var mouse := {
 		&"kb_fire": MOUSE_BUTTON_LEFT,
 		&"kb_ads": MOUSE_BUTTON_RIGHT,
-		&"kb_swap": MOUSE_BUTTON_WHEEL_UP,
+		&"kb_swap": MOUSE_BUTTON_WHEEL_DOWN,
+		&"kb_swap_prev": MOUSE_BUTTON_WHEEL_UP,
 	}
 	for action: StringName in mouse:
 		if not InputMap.has_action(action):
@@ -80,7 +83,6 @@ func _define_keyboard_actions() -> void:
 		InputMap.action_add_event(action, mev)
 	var extra := {
 		&"kb_grapple": [MOUSE_BUTTON_XBUTTON1, MOUSE_BUTTON_XBUTTON2],
-		&"kb_swap": [MOUSE_BUTTON_WHEEL_DOWN],
 	}
 	for action: StringName in extra:
 		for button: MouseButton in extra[action]:

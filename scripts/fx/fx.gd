@@ -6,6 +6,8 @@ const TRACER_COUNT := 48
 const IMPACT_COUNT := 32
 const TRACER_LIFE := 0.07
 const TRACER_SPEED := 450.0
+const RAIL_COUNT := 8
+const RAIL_LIFE := 0.5
 
 var _tracers: Array[MeshInstance3D] = []
 var _tracer_age: PackedFloat32Array = []
@@ -13,6 +15,9 @@ var _tracer_len: PackedFloat32Array = []
 var _tracer_from: PackedVector3Array = []
 var _tracer_dir: PackedVector3Array = []
 var _tracer_i: int = 0
+
+var _rails: Array[MeshInstance3D] = []
+var _rail_age: PackedFloat32Array = []
 
 var _impacts: Array[CPUParticles3D] = []
 var _flashes: Array[MeshInstance3D] = []
@@ -51,6 +56,27 @@ void fragment() {
 		_tracer_len.append(0.0)
 		_tracer_from.append(Vector3.ZERO)
 		_tracer_dir.append(Vector3.FORWARD)
+
+	# Rail beams (sniper): a thick bright core that lingers and thins out.
+	var rail_mat := ShaderMaterial.new()
+	rail_mat.shader = tracer_shader
+	rail_mat.set_shader_parameter(&"color", Color(0.6, 0.9, 1.0, 1.0))
+	var rail_mesh := CylinderMesh.new()
+	rail_mesh.top_radius = 0.03
+	rail_mesh.bottom_radius = 0.03
+	rail_mesh.height = 1.0
+	rail_mesh.radial_segments = 6
+	rail_mesh.rings = 1
+	for i in RAIL_COUNT:
+		var mi := MeshInstance3D.new()
+		mi.mesh = rail_mesh
+		mi.material_override = rail_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visible = false
+		mi.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+		add_child(mi)
+		_rails.append(mi)
+		_rail_age.append(99.0)
 
 	_world_mat = _spark_mat(Color(1.0, 0.85, 0.55))
 	_hit_mat = _spark_mat(Color(1.0, 0.3, 0.2))
@@ -104,6 +130,25 @@ func tracer(from: Vector3, to: Vector3) -> void:
 	_update_tracer(i)
 
 
+## A rail shot: a straight beam from the muzzle to the hit that lingers and
+## thins out (sniper).
+func rail(from: Vector3, to: Vector3) -> void:
+	var length := from.distance_to(to)
+	if length < 0.5:
+		return
+	var i := 0
+	for k in RAIL_COUNT:  # the oldest beam
+		if _rail_age[k] > _rail_age[i]:
+			i = k
+	var dir := (to - from) / length
+	var up := Vector3.UP if absf(dir.y) < 0.98 else Vector3.RIGHT
+	var b := Basis.looking_at(dir, up) * Basis(Vector3.RIGHT, PI * 0.5)  # the cylinder runs along its Y
+	_rails[i].global_transform = Transform3D(b.scaled_local(Vector3(1.0, length, 1.0)), (from + to) * 0.5)
+	_rails[i].visible = true
+	_rail_age[i] = 0.0
+	_rails[i].set_instance_shader_parameter(&"fade", 1.0)
+
+
 func impact(point: Vector3, normal: Vector3, on_target: bool) -> void:
 	var i := _impact_i
 	_impact_i = (_impact_i + 1) % IMPACT_COUNT
@@ -129,6 +174,20 @@ func _process(delta: float) -> void:
 			_tracers[i].visible = false
 		else:
 			_update_tracer(i)
+	for i in RAIL_COUNT:
+		if _rail_age[i] >= RAIL_LIFE:
+			continue
+		_rail_age[i] += delta
+		if _rail_age[i] >= RAIL_LIFE:
+			_rails[i].visible = false
+		else:
+			var f := 1.0 - _rail_age[i] / RAIL_LIFE
+			_rails[i].set_instance_shader_parameter(&"fade", f * f)
+			var t := _rails[i].global_transform
+			var thin := lerpf(0.25, 1.0, f) / maxf(t.basis.x.length(), 0.001)
+			t.basis.x *= thin
+			t.basis.z *= thin
+			_rails[i].global_transform = t
 	for i in IMPACT_COUNT:
 		if _flash_age[i] > 0.06:
 			continue

@@ -7,14 +7,15 @@ extends RefCounted
 ## never lost) and also polled (for triggers, which have no button events).
 ## Call tick() once at the start of each physics step.
 
-enum Action { JUMP, CROUCH, SPRINT, GRAPPLE, FIRE, ADS, RELOAD, MELEE, SWAP, RESET, MENU }
-const ACTION_COUNT := 11
+## SWAP = next weapon, SWAP_PREV = previous, SLOT1-3 = pick a slot directly.
+enum Action { JUMP, CROUCH, SPRINT, GRAPPLE, FIRE, ADS, RELOAD, MELEE, SWAP, RESET, MENU, SLOT1, SLOT2, SLOT3, SWAP_PREV }
+const ACTION_COUNT := 15
 
 ## Keyboard/mouse action names defined by InputHub, indexed by Action.
 const KB_ACTIONS: Array = [
 	[&"kb_jump"], [&"kb_crouch"], [&"kb_sprint"], [&"kb_grapple"],
 	[&"kb_fire"], [&"kb_ads"], [&"kb_reload"], [&"kb_melee"], [&"kb_swap"],
-	[&"kb_reset"], [&"kb_menu"],
+	[&"kb_reset"], [&"kb_menu"], [&"kb_slot1"], [&"kb_slot2"], [&"kb_slot3"], [&"kb_swap_prev"],
 ]
 
 ## Xbox layout (Titanfall-style). -1 = not a face/shoulder button.
@@ -26,10 +27,14 @@ const PAD_BUTTONS: Array[int] = [
 	-1,                        # FIRE  (right trigger)
 	-1,                        # ADS   (left trigger)
 	JOY_BUTTON_X,              # RELOAD
-	JOY_BUTTON_RIGHT_STICK,    # MELEE
-	JOY_BUTTON_Y,              # SWAP
+	JOY_BUTTON_RIGHT_STICK,    # MELEE (quick melee)
+	JOY_BUTTON_Y,              # SWAP (next weapon: primary → secondary → blade)
 	JOY_BUTTON_BACK,           # RESET (View)
 	JOY_BUTTON_START,          # MENU
+	-1,                        # SLOT1 (keyboard only)
+	-1,                        # SLOT2
+	-1,                        # SLOT3
+	-1,                        # SWAP_PREV (mouse wheel up)
 ]
 
 const TRIGGER_PRESS := 0.45

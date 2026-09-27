@@ -536,7 +536,7 @@ func test_keyboard_bindings() -> void:
 	router.use_kbm = true
 	var binds := {
 		KEY_SPACE: A.JUMP, KEY_CTRL: A.CROUCH, KEY_C: A.CROUCH, KEY_Q: A.GRAPPLE,
-		KEY_R: A.RELOAD, KEY_V: A.MELEE, KEY_1: A.SWAP, KEY_T: A.RESET,
+		KEY_R: A.RELOAD, KEY_V: A.MELEE, KEY_1: A.SLOT1, KEY_2: A.SLOT2, KEY_3: A.SLOT3, KEY_T: A.RESET,
 	}
 	for code: Key in binds:
 		var action: int = binds[code]

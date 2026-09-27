@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="PackedScene" path="res://assets/models/agent_blade.glb" id="2_model"]
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Arc Blade"
+kind = 1
+slot = 2
+model = ExtResource("2_model")
+model_scale = 1.0
+model_rot_deg = Vector3(72, 0, 0)
+hip_pos = Vector3(0.2, -0.24, -0.32)
+hip1_pos = Vector3(0.2, -0.24, -0.32)
+draw_time = 0.22
+magazine = 1
+melee_damage = 70.0
+melee_range = 3.0
+melee_cone_deg = 55.0
+swing_time = 0.36
+strike_at = 0.32
+combo_count = 3
+combo_window = 0.45
+combo_finisher_mult = 1.6
+hitstop = 0.07
+lunge_range = 8.0
+lunge_speed = 22.0
+lunge_max_time = 0.42
+one_hand_hip = true
