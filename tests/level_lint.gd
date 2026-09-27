@@ -1,0 +1,60 @@
+extends SceneTree
+## Level lint: loads the gym and checks placement rules that are easy to
+## break when editing layouts. Exit code = number of failures.
+##   godot --headless --path . -s res://tests/level_lint.gd
+
+var failures := 0
+
+
+const LEVELS := ["res://scenes/gym.tscn", "res://scenes/rooftops.tscn"]
+
+
+func _initialize() -> void:
+	for path in LEVELS:
+		await _lint(path)
+	quit(failures)
+
+
+func _lint(path: String) -> void:
+	var gym: Node = load(path).instantiate()
+	root.add_child(gym)
+	for i in 6:
+		await physics_frame
+	var space: PhysicsDirectSpaceState3D = gym.get_world_3d().direct_space_state
+	var q := PhysicsShapeQueryParameters3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.38
+	cap.height = 1.6
+	q.shape = cap
+	q.collision_mask = 1
+	var count := 0
+	for d in gym.get_children():
+		if not (d is TargetDummy):
+			continue
+		count += 1
+		var dummy: TargetDummy = d
+		var home: Vector3 = dummy._origin
+		for k in 21:
+			var p: Vector3 = home + dummy.move_axis * (-1.0 + k * 0.1)
+			q.transform = Transform3D(Basis.IDENTITY, p + Vector3.UP * 1.0)
+			if not space.intersect_shape(q, 1).is_empty():
+				_fail("%s: dummy at %s overlaps geometry along its path (t=%.1f)" % [path.get_file(), home, -1.0 + k * 0.1])
+				break
+		var ground := space.intersect_ray(PhysicsRayQueryParameters3D.create(home + Vector3.UP * 0.3, home + Vector3.DOWN * 0.5, 1))
+		if ground.is_empty():
+			_fail("%s: dummy at %s is floating (no ground within 0.5 m)" % [path.get_file(), home])
+	if count == 0:
+		_fail("no dummies found (placement broken?)")
+	for s in gym.stations:
+		var pos: Vector3 = s[1]
+		q.transform = Transform3D(Basis.IDENTITY, pos + Vector3.UP * 1.0)
+		if not space.intersect_shape(q, 1).is_empty():
+			_fail("%s: station '%s' spawns inside geometry" % [path.get_file(), s[0]])
+	print("level lint %s: %d dummies, %d stations, %d failures so far" % [path.get_file(), count, gym.stations.size(), failures])
+	gym.queue_free()
+	await process_frame
+
+
+func _fail(msg: String) -> void:
+	failures += 1
+	print("  FAIL ", msg)
