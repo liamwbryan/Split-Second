@@ -95,7 +95,7 @@ func build_level() -> void:
 ## wall-run the arcology face → finish on the sky-dock launch pad.
 ## Par is a first guess until timed in play.
 func _course() -> void:
-	var c := make_course("spiral_run", "Spiral Run", 70.0)
+	var c := make_course("spiral_run", "Spiral Run", 45.0)  # ≈38 s clean run (leg estimate) + 15%
 	c.set_start(Vector3(-26, ROOF, 2), -PI * 0.5)
 	for g: Array in GATES:
 		c.add_gate(g[0], g[1], g[2], 6.0)
