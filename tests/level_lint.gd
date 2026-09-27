@@ -6,7 +6,7 @@ extends SceneTree
 var failures := 0
 
 
-const LEVELS := ["res://scenes/gym.tscn", "res://scenes/rooftops.tscn", "res://scenes/spiral.tscn"]
+const LEVELS := ["res://scenes/gym.tscn", "res://scenes/rooftops.tscn", "res://scenes/spiral.tscn", "res://scenes/pendulum_hall.tscn"]
 
 
 func _initialize() -> void:

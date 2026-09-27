@@ -714,7 +714,7 @@ func build_environment() -> void:
 	# Moonlight from the south-east (the arcology is north, so the open decks
 	# catch it), cool and fairly strong so the play space reads clearly.
 	var moon := DirectionalLight3D.new()
-	moon.rotation = Vector3(deg_to_rad(-40.0), deg_to_rad(150.0), 0.0)
+	moon.rotation = Vector3(deg_to_rad(-40.0), deg_to_rad(30.0), 0.0)  # shines toward the NW (a light points along -Z)
 	moon.light_energy = 0.75
 	moon.light_color = Color(0.7, 0.78, 1.0)
 	moon.shadow_enabled = true

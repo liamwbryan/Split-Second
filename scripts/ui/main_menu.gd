@@ -3,6 +3,7 @@ extends Control
 
 const LEVELS := [
 	["Spiral", "res://scenes/spiral.tscn", "Spiral Run: a sky garage 300 m up an arcology. Slide the Express."],
+	["Pendulum Hall", "res://scenes/pendulum_hall.tscn", "Pendulum Run: a sky museum with a 90 m pendulum slingshot. (First pass)"],
 	["Rooftops", "res://scenes/rooftops.tscn", "Rooftops Run time trial: city rooftops, crane, billboard, lift."],
 	["Movement Gym", "res://scenes/gym.tscn", "One station per move, plus a shooting range."],
 ]

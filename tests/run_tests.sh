@@ -4,6 +4,7 @@
 #   tests/run_tests.sh wallrun      run one test by name
 #   tests/run_tests.sh aim          aim assist tests only (aim:slowdown_near_target for one)
 #   tests/run_tests.sh spiral       SPIRAL route checks only
+#   tests/run_tests.sh pendulum     PENDULUM HALL checks only
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -33,6 +34,14 @@ if [[ $# -eq 0 || "$1" == spiral ]]; then
 		| grep -E "ok  |FAIL|spiral:|SCRIPT ERROR|Parse Error"
 	spiral="${PIPESTATUS[0]}"
 	[[ "$spiral" != 0 && "$status" == 0 ]] && status="$spiral"
+fi
+# PENDULUM HALL checks (pads, riding and launching off the pendulum).
+if [[ $# -eq 0 || "$1" == pendulum ]]; then
+	perl -e 'alarm shift; exec @ARGV' 180 \
+		"$GODOT" --headless --path . --fixed-fps 120 res://tests/pendulum_tests.tscn 2>&1 \
+		| grep -E "ok  |FAIL|pendulum:|SCRIPT ERROR|Parse Error"
+	pend="${PIPESTATUS[0]}"
+	[[ "$pend" != 0 && "$status" == 0 ]] && status="$pend"
 fi
 # Level placement lint (dummies inside walls, floating, spawns in geometry).
 perl -e 'alarm shift; exec @ARGV' 120 "$GODOT" --headless --path . -s res://tests/level_lint.gd 2>&1 \
