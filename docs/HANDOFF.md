@@ -17,7 +17,7 @@ Last updated: 2026-09-26 (evening).
 - Assets: `tools/fetch_assets.sh` (CC0: Quaternius UAL1/UAL2 mannequin and animations, Poly Haven textures and HDRI). Blender models: `blender -b --python art/blender/<script>.py` exports to `assets/models/`. Preview renders: `art/blender/preview.py`. SFX: `godot --headless --path . -s res://tools/bake_sfx.gd`.
 
 ## Decisions Liam made (don't re-ask)
-- **Controls:** Titanfall/Apex layout. **Hold** to slide/crouch (Ctrl/C/B) and **hold** to grapple (Q/LB). Walk by default, sprint on hold Shift / L3 toggle. Station cycling is `[ ]`, the tuning panel is backtick, the debug readout is O, third-person is P, restart is T. **No F-keys** (they're media keys on Mac).
+- **Controls:** Titanfall/Apex layout. **Hold** to slide/crouch (Ctrl/C/B) and **hold** to grapple (Q/LB). Walk by default, sprint on hold Shift / L3 toggle. **Esc / pad Start opens the pause menu** (Resume, Restart run, Tuning panel, Graphics, Main menu, Quit; the game and course clock freeze). Station cycling is `[ ]`, the tuning panel is backtick (on a pad, via the pause menu), the debug readout is O, third-person is P, restart is T. **No F-keys** (they're media keys on Mac).
 - **Character:** a stealth special agent (Mirror's Edge silhouette, Splinter Cell tech, a Matrix-ish "hidden in a normal city" vibe). Matte black suit, tri-lens goggles, belt, holster, forearm grapple bracer, spine unit. Player color appears only on lenses and lights: P1 orange, P2 cyan, P3 lime, P4 magenta.
 - **Maps:** each map is its own setting. Every map is both a couch FFA arena and a timed single-player course. Rooftops is the flagship (spec in DESIGN §7.5).
 - **Wind audio:** only while airborne, grappling, wall-running or sliding. Subtle and speed-scaled.

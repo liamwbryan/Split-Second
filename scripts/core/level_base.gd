@@ -9,6 +9,7 @@ extends Node3D
 const T := LevelBuilder.Tag
 const MOVEMENT_DEFAULT := "res://tuning/movement_default.tres"
 const SETTINGS_DEFAULT := "res://tuning/player_settings_default.tres"
+const MAIN_MENU := "res://scenes/main_menu.tscn"
 
 ## name, position, yaw[, pitch]. Station 0 is the default spawn. The optional
 ## pitch (radians) is for vista stations that should look down over a drop.
@@ -24,6 +25,9 @@ var settings: PlayerSettings
 var split: SplitScreen
 var ui: CanvasLayer
 var panel: TuningPanel
+var pause_menu: PauseMenu
+## What "Main menu" does (tests swap it out; the default changes scene).
+var exit_to_menu: Callable = _to_main_menu
 var overlay: DebugOverlay
 var _b: LevelBuilder
 var _overlay_was_visible: bool = true
@@ -81,6 +85,20 @@ func _ready() -> void:
 	var lo := player.loadout
 	panel.setup({"Movement": tuning, "Player": settings, "Rifle": lo.weapons[0], "Rail": lo.weapons[1], "Blade": lo.weapons[2], "Knife": lo.knife}, ui_scale)
 	panel.visibility_toggled.connect(_on_panel_toggled)
+	pause_menu = PauseMenu.new()
+	ui.add_child(pause_menu)
+	pause_menu.setup(ui_scale)
+	pause_menu.restart_requested.connect(func() -> void:
+		var p := players[0]
+		if p.restart_handler.is_valid():
+			p.restart_handler.call(p)
+		else:
+			p.respawn())
+	pause_menu.tuning_requested.connect(func() -> void:
+		if not panel.visible:
+			panel.toggle())
+	pause_menu.main_menu_requested.connect(func() -> void: exit_to_menu.call())
+	pause_menu.quit_requested.connect(func() -> void: get_tree().quit())
 	player.hud.toast(intro_hint(), 6.0)
 	_update_avatar_visibility()
 	_apply_graphics()
@@ -189,8 +207,10 @@ func spawn_player(router: InputRouter) -> Player:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(&"kb_menu") and not panel.visible:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+	var start: bool = event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START
+	if (event.is_action_pressed(&"kb_menu") or start) and not panel.visible:
+		pause_menu.open()  # Esc / Start: pause (Resume, Restart, Tuning, Graphics, Main menu, Quit)
+		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not panel.visible:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event.is_action_pressed(&"debug_third_person"):
@@ -201,6 +221,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_cycle_station(1)
 	elif not panel.visible and (event.is_action_pressed(&"station_prev") or _is_dpad(event, JOY_BUTTON_DPAD_LEFT)):
 		_cycle_station(-1)
+
+
+func _to_main_menu() -> void:
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(MAIN_MENU)
 
 
 func _is_dpad(event: InputEvent, button: JoyButton) -> bool:

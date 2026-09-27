@@ -36,5 +36,5 @@ func _process(_delta: float) -> void:
 			"yes" if m.crouched else "no"],
 		("flow    %.2f   soft cap %.1f m/s" % [m.flow, m.soft_speed_cap()]) if player.tuning.momentum_enabled else "flow    off (Movement tab: momentum_enabled)",
 		"pads    %s" % InputHub.pad_summary(),
-		"`  tuning   O  this readout   T  restart   [ ]  stations   (pad: Menu, View, D-pad)",
+		"Esc  menu   `  tuning   O  this readout   T  restart   [ ]  stations   (pad: Start menu, View restart, D-pad stations)",
 	])

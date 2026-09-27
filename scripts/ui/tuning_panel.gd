@@ -74,9 +74,11 @@ func setup(targets: Dictionary, p_ui_scale: float = 1.0) -> void:
 # _input (not _unhandled_input): a focused slider would otherwise swallow Tab
 # for focus navigation and the panel could never close.
 func _input(event: InputEvent) -> void:
+	# Start closes it on a pad; opening it on a pad goes through the pause menu
+	# (Start pauses), so Esc/Start here only ever close.
+	var pad_close: bool = visible and event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START
 	var close_key: bool = visible and event.is_action_pressed(&"kb_menu")
-	var pad_toggle: bool = event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START
-	if event.is_action_pressed(&"debug_panel") or close_key or pad_toggle:
+	if event.is_action_pressed(&"debug_panel") or close_key or pad_close:
 		toggle()
 		get_viewport().set_input_as_handled()
 

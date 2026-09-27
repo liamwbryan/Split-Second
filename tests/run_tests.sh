@@ -5,6 +5,7 @@
 #   tests/run_tests.sh aim          aim assist tests only (aim:slowdown_near_target for one)
 #   tests/run_tests.sh spiral       SPIRAL route checks only
 #   tests/run_tests.sh pendulum     PENDULUM HALL checks only
+#   tests/run_tests.sh menu         pause menu checks only
 #   tests/run_tests.sh weapons      weapon tests only (weapon:lunge_closes_distance for one)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -53,6 +54,14 @@ if [[ $# -eq 0 || "$1" == pendulum ]]; then
 		| grep -E "ok  |FAIL|pendulum:|SCRIPT ERROR|Parse Error"
 	pend="${PIPESTATUS[0]}"
 	[[ "$pend" != 0 && "$status" == 0 ]] && status="$pend"
+fi
+# Pause menu (Esc pauses and resumes, Main menu leaves the map).
+if [[ $# -eq 0 || "$1" == menu ]]; then
+	perl -e 'alarm shift; exec @ARGV' 120 \
+		"$GODOT" --headless --path . --fixed-fps 120 res://tests/menu_tests.tscn 2>&1 \
+		| grep -E "ok  |FAIL|menu:|SCRIPT ERROR|Parse Error"
+	menu="${PIPESTATUS[0]}"
+	[[ "$menu" != 0 && "$status" == 0 ]] && status="$menu"
 fi
 # Level placement lint (dummies inside walls, floating, spawns in geometry).
 perl -e 'alarm shift; exec @ARGV' 120 "$GODOT" --headless --path . -s res://tests/level_lint.gd 2>&1 \
