@@ -96,7 +96,8 @@ func mover(pivot: Vector3, mode: Mover.Mode = Mover.Mode.PATH) -> Mover:
 
 
 ## Adds a box (collision + mesh) to an existing body at a local offset.
-func attach_box(body: CollisionObject3D, local_center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, local_rot_deg: Vector3 = Vector3.ZERO) -> void:
+## `visual = false` adds only the collision (a model draws that part).
+func attach_box(body: CollisionObject3D, local_center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, local_rot_deg: Vector3 = Vector3.ZERO, visual: bool = true) -> void:
 	var xform := Transform3D(Basis.from_euler(local_rot_deg * (PI / 180.0)), local_center)
 	var shape := CollisionShape3D.new()
 	var box_shape := BoxShape3D.new()
@@ -104,6 +105,13 @@ func attach_box(body: CollisionObject3D, local_center: Vector3, size: Vector3, t
 	shape.shape = box_shape
 	shape.transform = xform
 	body.add_child(shape)
+	if visual:
+		attach_deco(body, local_center, size, tag, local_rot_deg)
+
+
+## Visual-only box riding an existing (moving) body: no collision.
+func attach_deco(body: Node3D, local_center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, local_rot_deg: Vector3 = Vector3.ZERO) -> void:
+	var xform := Transform3D(Basis.from_euler(local_rot_deg * (PI / 180.0)), local_center)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	_append_box(st, xform, size, _color_for(tag, Color(0, 0, 0, 0)), _uv2_for(tag, local_center))
@@ -111,6 +119,17 @@ func attach_box(body: CollisionObject3D, local_center: Vector3, size: Vector3, t
 	mi.mesh = st.commit()
 	mi.material_override = SurfaceMaterials.get_material(KINDS.get(tag, Kind.PAINT))
 	body.add_child(mi)
+
+
+## A Blender model (visual only, no collision) under `parent` at a local
+## transform. Use it for one-off models on movers; static repeated props go
+## through Props (one MultiMesh per model). Pair it with attach_box(visual =
+## false) or collider() so collision stays simple boxes.
+func model(parent: Node3D, scene: PackedScene, local_xform: Transform3D = Transform3D.IDENTITY) -> Node3D:
+	var node := scene.instantiate() as Node3D
+	parent.add_child(node)
+	node.transform = local_xform
+	return node
 
 
 ## A grapple point that rides along with a (moving) parent node.

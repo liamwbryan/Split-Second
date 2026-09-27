@@ -170,17 +170,25 @@ func _ne_construction() -> void:
 		b.block(Vector3(14 + i * 3.0, 0, -10.5), Vector3(17 + i * 3.0, 1.25 * (i + 1), -8), T.DARK)
 
 	# Tower crane: mast from the roof, swinging jib at 41 m. The jib is a
-	# moving bridge (1.4 m wide) with a grapple point at the tip.
-	b.block(Vector3(19, 35, -21), Vector3(21, 41, -19), T.METAL)
+	# moving bridge (1.4 m wide) with a grapple point at the tip. The lattice
+	# models (art/blender/crane_billboard.py) are visuals only: collision is
+	# the same simple boxes, and the walkable decks stay BOOST-painted plates.
+	const CRANE_MAST := preload("res://assets/models/prop_crane_mast.glb")
+	const CRANE_JIB := preload("res://assets/models/prop_crane_jib.glb")
+	b.collider(Vector3(20, 38, -20), Vector3(2, 6, 2), T.METAL)
+	b.model(self, CRANE_MAST, Transform3D(Basis.IDENTITY, Vector3(20, 35, -20)))
 	crane = b.mover(Vector3(20, 41, -20), Mover.Mode.SWING)
 	crane.axis = Vector3.UP
 	crane.swing_amplitude_deg = 55.0
 	crane.period = 20.0
 	crane.rotation.y = deg_to_rad(45.0)  # rest: jib points north-west over the office roof
-	b.attach_box(crane, Vector3(0, 0.6, -19.0), Vector3(1.4, 1.2, 36.0), T.BOOST)   # jib (runs along local -z)
-	b.attach_box(crane, Vector3(0, 0.6, 6.0), Vector3(1.4, 1.2, 10.0), T.BOOST)     # counter-jib
-	b.attach_box(crane, Vector3(0, 2.2, 9.5), Vector3(3.0, 2.6, 3.0), T.DARK)       # counterweight
-	b.attach_box(crane, Vector3(0, 1.8, 0.0), Vector3(2.6, 2.4, 2.6), T.NEUTRAL)    # cab
+	b.attach_box(crane, Vector3(0, 0.6, -19.0), Vector3(1.4, 1.2, 36.0), T.BOOST, Vector3.ZERO, false)  # jib (runs along local -z)
+	b.attach_box(crane, Vector3(0, 0.6, 6.0), Vector3(1.4, 1.2, 10.0), T.BOOST, Vector3.ZERO, false)    # counter-jib
+	b.attach_box(crane, Vector3(0, 2.2, 9.5), Vector3(3.0, 2.6, 3.0), T.DARK, Vector3.ZERO, false)      # counterweight
+	b.attach_box(crane, Vector3(0, 1.8, 0.0), Vector3(2.6, 2.4, 2.6), T.NEUTRAL, Vector3.ZERO, false)   # cab
+	b.model(crane, CRANE_JIB)
+	b.attach_deco(crane, Vector3(0, 1.14, -19.0), Vector3(1.4, 0.12, 36.0), T.BOOST)  # jib deck plate
+	b.attach_deco(crane, Vector3(0, 1.14, 6.0), Vector3(1.4, 0.12, 10.0), T.BOOST)    # counter-jib deck plate
 	b.attach_grapple_point(crane, Vector3(0, 2.2, -36.0))
 	b.attach_grapple_point(crane, Vector3(0, 2.2, -18.0))
 
@@ -247,11 +255,14 @@ func _se_billboard_block() -> void:
 	b.block(Vector3(21.8, 14, 36), Vector3(22, 20, 44), T.RUN)
 
 	# Rotating billboard on D's roof: a 14 x 6 m panel on a pole, 10 s per turn.
-	b.block(Vector3(33.6, 20, 29.6), Vector3(34.4, 21.0, 30.4), T.METAL)
+	# The frame model's pivot collar turns with it and hides the stub pole.
+	const BILLBOARD_FRAME := preload("res://assets/models/prop_billboard_frame.glb")
+	b.collider(Vector3(34, 20.5, 30), Vector3(0.8, 1.0, 0.8), T.METAL)
 	billboard = b.mover(Vector3(34, 20.9, 30), Mover.Mode.ROTATE)
 	billboard.axis = Vector3.UP
 	billboard.rotate_speed_deg = 36.0
 	b.attach_box(billboard, Vector3(0, 3.0, 0), Vector3(14, 6, 0.5), T.RUN)
+	b.model(billboard, BILLBOARD_FRAME)
 	props.ac_unit(Vector3(26, 20, 40), 90.0, true)
 	props.ac_unit(Vector3(42, 20, 18), 0.0)
 	props.antenna(Vector3(44, 20, 42), 6.0)

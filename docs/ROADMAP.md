@@ -31,7 +31,7 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 - [x] **First-person body awareness** (IK hands on gun/ledges/walls, legs): tuning pass done; mantle plants still brief (see HANDOFF)
 - [ ] Third-person rifle on the avatar
 - [x] Rooftops Run course: timer, checkpoints, finish, par time, splits vs best, medals, saved best (`Course`, reusable for M6/Race)
-- [ ] Blender props: ~~AC units, water tower, vents~~ done (MultiMesh); crane lattice, billboard frame left
+- [x] Blender props: AC units, water tower, vents (MultiMesh); crane lattice + billboard frame (models on the movers, box collision unchanged)
 - [x] Windows export (untested on real hardware yet)
 
 ## M2 — Gunplay Core
