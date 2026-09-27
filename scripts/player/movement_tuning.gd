@@ -90,6 +90,7 @@ extends Resource
 @export_range(0.0, 0.5, 0.01) var mantle_time_per_meter: float = 0.08
 @export_range(0.0, 15.0, 0.1) var mantle_exit_speed: float = 5.5
 @export_range(0.0, 1.0, 0.01) var mantle_speed_keep: float = 0.6
+@export_range(0.0, 1.0, 0.05) var mantle_lift_ease: float = 1.0  ## 0 = snappy ease-out lift, 1 = ease-in-out (the ledge and hands stay on screen longer)
 @export_range(0.3, 2.0, 0.05) var vault_max_height: float = 1.25
 @export_range(0.0, 15.0, 0.1) var vault_min_speed: float = 6.5
 @export_range(0.05, 1.0, 0.01) var vault_time: float = 0.22

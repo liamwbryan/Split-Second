@@ -403,10 +403,11 @@ func _tick_mantle(_delta: float) -> void:
 		_mantle_to = _mantle_node.to_global(_mantle_local_to)
 		carry = _surface_velocity(_mantle_node, _mantle_to)
 	var p := clampf(state_time / _mantle_duration, 0.0, 1.0)
-	# Up first (ease-out), then over the edge (smoothstep), so the path hugs the
-	# wall face and never cuts through the lip.
-	var up_p := 1.0 - pow(1.0 - clampf(p / 0.7, 0.0, 1.0), 2.0)
-	var fwd_p := smoothstep(0.25, 1.0, p)
+	var up_p := mantle_lift_curve(p, tuning.mantle_lift_ease)
+	# Over the edge (smoothstep) only once the lift is ~60% done, so the path
+	# hugs the wall face and never cuts through the lip. A gentler lift starts
+	# the forward move later to keep that clearance.
+	var fwd_p := smoothstep(lerpf(0.25, 0.4, tuning.mantle_lift_ease), 1.0, p)
 	var pos := Vector3(
 		lerpf(_mantle_from.x, _mantle_to.x, fwd_p),
 		lerpf(_mantle_from.y, _mantle_to.y, up_p),
@@ -1028,6 +1029,15 @@ func _grapple_world_point() -> Vector3:
 	if _grapple_node and is_instance_valid(_grapple_node):
 		return _grapple_node.to_global(_grapple_local)
 	return grapple_point
+
+
+## Height fraction of a mantle at progress `p`. The lift finishes at 70% of the
+## mantle. `lift_ease` 0 is an ease-out (half the height in the first ~15%, so the
+## ledge drops out of frame fast); 1 is an ease-in-out that keeps the lip and
+## the hand plants in view longer. Total time is the same either way.
+static func mantle_lift_curve(p: float, lift_ease: float) -> float:
+	var x := clampf(p / 0.7, 0.0, 1.0)
+	return lerpf(1.0 - (1.0 - x) * (1.0 - x), x * x * (3.0 - 2.0 * x), lift_ease)
 
 
 ## 0..1 through the current mantle/vault (0 outside a mantle).

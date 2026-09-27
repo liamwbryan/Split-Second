@@ -117,7 +117,7 @@ func _run_all() -> void:
 		"grapple", "coyote_jump", "jump_buffer_bhop", "ramp_slide_accel", "chimney",
 		"corridor_chain", "grapple_into_mantle", "wall_coyote_kick", "ground_wall_no_snag",
 		"shoot_dummy", "slide_release_stands", "ride_lift", "jump_off_moving_platform", "wallrun_moving_wall", "keyboard_bindings", "keyboard_grapple", "grapple_release", "grapple_tap_yank",
-		"fp_arms", "course_run", "climb_jump_direction",
+		"fp_arms", "course_run", "climb_jump_direction", "mantle_lift_gentle",
 	]
 	for t in tests:
 		if only != "" and t != only:
@@ -846,3 +846,34 @@ func test_climb_jump_direction() -> void:
 	await seconds(0.4)
 	check("neutral + jump kicks off the wall", jumps_seen.has(PlayerMotor.JumpKind.CLIMB_KICK), str(jumps_seen))
 	check("kick turns to face away", absf(wrapf(player.yaw - PI, -PI, PI)) < 0.2, "yaw %.2f" % player.yaw)
+
+
+## The mantle lift eases in (HANDOFF item 1): the body shouldn't rise half-way
+## in the first few frames, or the ledge and the hand plants drop out of view.
+func test_mantle_lift_gentle() -> void:
+	var t := player.tuning
+	check("ease 0 keeps the old ease-out curve", absf(PlayerMotor.mantle_lift_curve(0.2, 0.0) - (1.0 - pow(1.0 - 0.2 / 0.7, 2.0))) < 0.001)
+	await reset(Vector3(300, 0, 0))
+	router.scripted_move = Vector2(0, 1)
+	await ticks(10)
+	await tap(A.JUMP)
+	var y0 := NAN
+	var y_early := NAN
+	var mantle_ticks := 0
+	for i in 120:
+		await get_tree().physics_frame
+		if player.motor.state == S.MANTLE:
+			if is_nan(y0):
+				y0 = player.global_position.y
+			mantle_ticks += 1
+			if is_nan(y_early) and player.motor.mantle_progress() >= 0.2:
+				y_early = player.global_position.y
+		elif not is_nan(y0):
+			break
+	var lift := 1.4 - y0
+	var frac := (y_early - y0) / maxf(lift, 0.01)
+	check("mantle lifts < 35% in its first 20%", frac < 0.35, "frac %.2f (lift %.2f m)" % [frac, lift])
+	var want := t.mantle_time_base + t.mantle_time_per_meter * 1.4
+	check("mantle time unchanged", absf(mantle_ticks / 120.0 - want) < 0.15, "%.3f s vs %.3f" % [mantle_ticks / 120.0, want])
+	await seconds(0.3)
+	check("still ends on top", absf(player.global_position.y - 1.4) < 0.15, "y %.2f" % player.global_position.y)
