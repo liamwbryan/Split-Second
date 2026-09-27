@@ -59,13 +59,13 @@ func cancel() -> void:
 
 
 ## Start a swing with blade `d` (quick = a quick melee from a gun: the blade
-## comes up from below). Pressing again late in a swing queues the next hit of
-## the combo. Returns true if a new swing started.
+## comes up from below). Pressing again during a swing buffers the next hit of
+## the combo (it starts the moment this one ends). Returns true if a new swing
+## started.
 func swing(d: WeaponData, quick: bool) -> bool:
 	if busy:
-		if _t >= d.strike_at:
-			_queued = true
-			_queued_quick = quick
+		_queued = true
+		_queued_quick = quick
 		return false
 	data = d
 	combo_index = _next_combo if _since_end <= d.combo_window else 0

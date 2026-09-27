@@ -41,6 +41,9 @@ func setup(p_player: Player, p_gun: HitscanWeapon, p_melee: Melee) -> void:
 	player.camera_rig.camera.add_child(trail)
 	trail.setup(viewmodel, player.camera_rig.viewmodel_layer_bit(), RunnerAvatar.PLAYER_COLORS[player.player_index % RunnerAvatar.PLAYER_COLORS.size()])
 	viewmodel.trail = trail
+	# Build every model now, so the first switch mid-fight doesn't hitch.
+	for w: WeaponData in weapons + [knife]:
+		viewmodel.set_weapon(w)
 	_apply(current, true)
 
 

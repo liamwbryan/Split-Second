@@ -28,7 +28,7 @@ const SWINGS := [
 	[[Vector3(-0.16, -0.2, -0.3), Vector3(-0.9, -0.1, 0.2)], [Vector3(0.02, -0.1, -0.45), Vector3(0.0, 0.1, -1.0)], [Vector3(0.3, -0.06, -0.3), Vector3(0.9, 0.35, -0.1)]],
 	[[Vector3(0.14, 0.04, -0.25), Vector3(0.1, 0.9, 0.3)], [Vector3(0.04, -0.12, -0.45), Vector3(0.0, -0.2, -1.0)], [Vector3(0.02, -0.32, -0.38), Vector3(0.0, -0.95, -0.2)]],
 ]
-const BLADE_IDLE_DIR := Vector3(-0.25, 0.75, -0.6)
+const BLADE_IDLE_DIR := Vector3(0.05, 0.24, -0.97)  ## at rest: low on the right, pointing ahead, clear of the crosshair
 
 var player: Player
 var muzzle: Node3D

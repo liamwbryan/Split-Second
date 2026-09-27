@@ -95,6 +95,14 @@ Surfaces carry tags, and a shared material colors them automatically:
 - **Aim assist (gamepad only):** slowdown near targets plus light rotational assist while you're moving. It can be tuned per player and turned off. Split-screen FFA uses a lighter preset.
   - *Built (2026-09-26, `AimAssist`):* per player, in the tuning panel's Player tab. The preset (Off / Low / Standard / Strong) scales the raw values. Slowdown scales only the look stick's share of the turn, so mouse aim is never touched. Rotational follows a share of the target's angular motion relative to you (its strafe or yours), but only while the look stick is in use, so an idle stick never aims for you. Both are full strength inside half the cone (5°, widened for close targets) and fade to zero at its edge. Hip fire gets 70% of the ADS strength. Targets are anything in the `aim_target` group; a world-only line-of-sight ray on the picked target runs every 3 ticks.
 - **Viewmodel:** sway, bob, and tilt driven by movement state, so the gun visibly reacts to wall-runs and slides.
+- **Loadout (built 2026-09-26, `Loadout`):** a primary, a secondary and a blade (slots 1/2/3), plus a knife for quick melee. Keys 1/2/3 pick a slot, the mouse wheel cycles, pad Y cycles, and V / pad R3 is quick melee. A switch lowers the weapon (0.09 s), swaps the model and raises the new one (its `draw_time`). Each gun keeps its own ammo. Respawn goes back to the primary with full ammo. Everything a weapon is lives in its `WeaponData` (`scripts/weapons/*.tres`), with a tab per weapon in the tuning panel.
+- **Rail sniper (built):** heavy (95 body, 2.2× head), a 48 rpm bolt cadence (the gun rolls through a bolt cycle), and a 5-round mag. Scoping in zooms to 0.28× FOV at 0.3× look sensitivity; the gun and arms hide behind a full-screen scope overlay. From the hip it's wild (4.5° plus up to 4° moving and 5° airborne), scoped it's dead accurate. It fires a lingering rail beam (`Fx.rail`). Scoped headshots and long-range kills (≥ 60 m) get a callout ("HEADSHOT 84 m"), a bigger hitmarker and a chime. It's hitscan for now; travel time is still an option.
+- **Melee (built):** the Arc Blade (slot 3, an energy sword) and a combat knife (quick melee from any gun: it comes up from below, slashes once, then the gun comes back).
+  - Hits are a cone check (range and angle from the eye, per `WeaponData`) against `aim_target` nodes with a line-of-sight ray. Point-blank always connects.
+  - Combo: up to 3 swings (forehand, backhand, overhead). The last one is a finisher (×1.6 for the blade). Presses during a swing are buffered.
+  - **Lunge:** if a target sits in a narrow cone (14°, 22° on a pad for magnetism) within 7.5–8 m and out of reach, you dash to it (`PlayerMotor.State.LUNGE`, up to 22 m/s) and stop 1.4 m short. You never pass through it. The swing holds at its windup until you arrive, then strikes. After the strike you keep 35% of your entry speed.
+  - **Style:** slide melee ×1.5 (one-shots a dummy) and air or wall-run melee ×1.3, with a callout.
+  - **Feel:** per-player hit-stop (your movement and swing freeze for 0.05–0.07 s, longer on a kill, and split-screen partners don't feel it), a camera punch per swing direction, a player-color slash trail drawn with the viewmodel FOV, and meaty hit sounds. The HUD shows a ring around the dot that lights up when a lunge target is in reach.
 
 ### Initial roster (original designs, inspired by the reference)
 
@@ -103,11 +111,13 @@ Surfaces carry tags, and a shared material colors them automatically:
 | Rifle | Full-auto hitscan all-rounder |
 | SMG | High fire rate, best hip-fire while in motion |
 | Shotgun | Close range, rewards sliding in |
-| Rail sniper | Projectile with travel time; one-shot headshots |
+| Rail sniper | Scoped, bolt-cycled, one-shot headshots (built, hitscan for now) |
 | Sidearm | Fast draw backup |
 | Boost launcher | Arcing explosive whose knockback also works as a movement tool (rocket-jumps) |
 
-Later: a lock-on pistol, a charge rifle, energy melee, grenades/ordnance slot.
+Melee: Arc Blade (energy sword, slot 3) and combat knife (quick melee), both built.
+
+Later: a lock-on pistol, a charge rifle, grenades/ordnance slot.
 
 ## 6. AI enemies (single-player & co-op)
 
