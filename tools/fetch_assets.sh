@@ -3,7 +3,7 @@
 # Safe to re-run: skips files that already exist.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-UA="ParkourShooter/1.0 (asset fetch)"
+UA="SplitSecond/1.0 (asset fetch)"
 TMP="${TMPDIR:-/tmp}/ps_assets"; mkdir -p "$TMP"
 
 fetch() { # url out

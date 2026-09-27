@@ -1,10 +1,10 @@
-# Parkour Shooter
+# Split Second
 
-A first-person parkour shooter for Mac (Windows later), built in Godot 4.7. See [docs/DESIGN.md](docs/DESIGN.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+A first-person parkour shooter for Mac and Windows, built in Godot 4.7. See [docs/DESIGN.md](docs/DESIGN.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Run it
 
-Double-click `build/mac/Parkour Shooter.app` (build it with `tools/build.sh`), or on Windows run `build/windows/ParkourShooter.exe`. From source:
+Double-click `build/mac/Split Second.app` (build it with `tools/build.sh`), or on Windows run `build/windows/SplitSecond.exe`. From source:
 
 ```sh
 brew install --cask godot    # once (Godot 4.7.x)

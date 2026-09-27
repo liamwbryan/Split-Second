@@ -1,4 +1,6 @@
-# Parkour Shooter
+# Split Second
+
+The game is called **Split Second** (renamed from "Parkour Shooter" on 2026-09-26). Use that name in code, builds and docs.
 
 **Start with `docs/HANDOFF.md`**: it has the current state, Liam's decisions, known issues and next steps.
 

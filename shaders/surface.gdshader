@@ -28,6 +28,8 @@ uniform float floor_height = 3.6;
 uniform float bay_width = 2.8;
 uniform vec3 glass_color : source_color = vec3(0.14, 0.2, 0.28);
 uniform float grid_strength = 0.06;
+uniform float edge_wear = 0.45;      // chamfer highlight (LevelBuilder bevels every block edge)
+uniform float seam_strength = 0.35;  // panel seams on concrete and metal
 // 0 = day, 1 = night: more windows lit and brighter, darker glass. Set per
 // map by LevelBase (RenderingServer.global_shader_parameter_set).
 global uniform float night;
@@ -130,6 +132,26 @@ void fragment() {
 		metal = mix(metal, 0.85, glazed);
 		nrm = mix(nrm, vec3(0.5, 0.5, 1.0), glazed);
 		emit += mix(vec3(0.9, 0.7, 0.45), lamp, night) * lit * glazed * mix(0.25, 0.8, night);  // day: unchanged
+	}
+
+	// Chamfers (normals between two axes) catch a worn-paint highlight, so
+	// block edges read crisp. Faces are flat-shaded, so this is exact.
+	float axis_max = max(an.x, max(an.y, an.z));
+	float edge = 1.0 - smoothstep(0.8, 0.95, axis_max);
+	col = mix(col, min(col * 1.35 + 0.035, vec3(1.0)), edge * edge_wear * (kind == 0 ? 0.5 : 1.0));
+
+	// Panel seams: a staggered cladding pattern on walls, a grid on floors.
+	if (kind == 1 || kind == 4) {
+		float cell = kind == 4 ? 1.2 : 3.0;
+		float seam;
+		if (top) {
+			seam = max(line_aa(uv.x, cell, 0.012), line_aa(uv.y, cell, 0.012));
+		} else {
+			float row = floor(uv.y / (cell * 0.5));
+			seam = max(line_aa(uv.y, cell * 0.5, 0.012), line_aa(uv.x + mod(row, 2.0) * cell * 0.5, cell, 0.012));
+		}
+		col *= 1.0 - seam_strength * seam * (1.0 - edge);
+		rough = mix(rough, 0.9, seam * 0.5);
 	}
 
 	if (UV2.x > 0.5) {

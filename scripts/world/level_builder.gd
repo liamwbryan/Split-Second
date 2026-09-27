@@ -332,8 +332,82 @@ const _FACES := [
 ]
 
 
-## Appends a box (12 triangles) with per-vertex color and uv2 to a batch.
+## Edge chamfer on block visuals (m). Collision stays an exact box; the
+## chamfers catch light so edges read crisp instead of greybox-sharp
+## (ART_DIRECTION §2). Capped at a quarter of the block's thinnest side.
+const BEVEL := 0.06
+
+
+## Appends a box with per-vertex color and uv2 to a batch: chamfered (44
+## triangles) when it's thick enough, else a plain 12-triangle box.
 static func _append_box(st: SurfaceTool, xform: Transform3D, size: Vector3, color: Color, uv2: Vector2) -> void:
+	var c := minf(BEVEL, minf(size.x, minf(size.y, size.z)) * 0.25)
+	if c < 0.004:
+		_append_plain_box(st, xform, size, color, uv2)
+		return
+	var h := size * 0.5
+	var ax := [Vector3.RIGHT, Vector3.UP, Vector3.BACK]
+	var hc := h - Vector3(c, c, c)
+	# The inset vertex of face (axis a, sign s) at the corner with signs sg.
+	var fv := func(a: int, sg: Vector3) -> Vector3:
+		var p := sg * hc
+		p[a] = sg[a] * h[a]
+		return p
+	# Faces: inset rectangles.
+	for a in 3:
+		for s: float in [-1.0, 1.0]:
+			var b := (a + 1) % 3
+			var t := (a + 2) % 3
+			var q: Array[Vector3] = []
+			for sb_st: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+				var sg := Vector3.ZERO
+				sg[a] = s
+				sg[b] = sb_st.x
+				sg[t] = sb_st.y
+				q.append(fv.call(a, sg))
+			var n: Vector3 = ax[a] * s
+			_tri_out(st, xform, q[0], q[1], q[2], n, color, uv2)
+			_tri_out(st, xform, q[0], q[2], q[3], n, color, uv2)
+	# Edges: a chamfer strip between two faces, along the third axis.
+	for a in 3:
+		var b := (a + 1) % 3
+		var t := (a + 2) % 3
+		for sa: float in [-1.0, 1.0]:
+			for sb: float in [-1.0, 1.0]:
+				var q: Array[Vector3] = []
+				for st_: float in [-1.0, 1.0]:
+					var sg := Vector3.ZERO
+					sg[a] = sa
+					sg[b] = sb
+					sg[t] = st_
+					q.append(fv.call(a, sg))
+					q.append(fv.call(b, sg))
+				var n: Vector3 = ((ax[a] as Vector3) * sa + (ax[b] as Vector3) * sb).normalized()
+				_tri_out(st, xform, q[0], q[1], q[3], n, color, uv2)
+				_tri_out(st, xform, q[0], q[3], q[2], n, color, uv2)
+	# Corners.
+	for sx: float in [-1.0, 1.0]:
+		for sy: float in [-1.0, 1.0]:
+			for sz: float in [-1.0, 1.0]:
+				var sg := Vector3(sx, sy, sz)
+				_tri_out(st, xform, fv.call(0, sg), fv.call(1, sg), fv.call(2, sg), sg.normalized(), color, uv2)
+
+
+## One triangle facing local `n` (winding picked so it's a front face).
+static func _tri_out(st: SurfaceTool, xform: Transform3D, a: Vector3, b: Vector3, c: Vector3, n: Vector3, color: Color, uv2: Vector2) -> void:
+	if (b - a).cross(c - a).dot(n) > 0.0:  # Godot front faces are clockwise from the front
+		var tmp := b
+		b = c
+		c = tmp
+	var wn := (xform.basis * n).normalized()
+	for v: Vector3 in [a, b, c]:
+		st.set_normal(wn)
+		st.set_color(color)
+		st.set_uv2(uv2)
+		st.add_vertex(xform * v)
+
+
+static func _append_plain_box(st: SurfaceTool, xform: Transform3D, size: Vector3, color: Color, uv2: Vector2) -> void:
 	var h := size * 0.5
 	for f in _FACES:
 		var n: Vector3 = f[0]

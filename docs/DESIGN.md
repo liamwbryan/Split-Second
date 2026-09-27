@@ -1,4 +1,4 @@
-# Parkour Shooter — Game Design Document
+# Split Second — Game Design Document
 
 > Working title TBD. Living document: update it when a decision changes.
 

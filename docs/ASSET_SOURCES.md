@@ -69,7 +69,7 @@ curl -L --fail -o "$out" "$url"
 
 ### Poly Haven API (CC0)
 
-* **You must send a non-default User-Agent.** Python's `urllib` default UA gets **403**, while `curl`'s default and a custom UA get 200. Poly Haven asks for a unique UA such as `ParkourShooter/1.0 (liam)`.
+* **You must send a non-default User-Agent.** Python's `urllib` default UA gets **403**, while `curl`'s default and a custom UA get 200. Poly Haven asks for a unique UA such as `SplitSecond/1.0 (liam)`.
 * List: `https://api.polyhaven.com/assets?t=textures` (or `t=hdris`). Files: `https://api.polyhaven.com/files/<id>` returns JSON keyed by map (`Diffuse`, `nor_gl`, `nor_dx`, `Rough`, `AO`, `arm`, `Displacement`, sometimes `Metal`), then resolution (`1k`, `2k`, …), then format (`jpg`, `png`, `exr`), then `{url, size, md5}`. There's also a `gltf` key that bundles a ready glTF material with its textures.
 * URL pattern (all 198 URLs below match it and returned 200 `image/jpeg` / `image/vnd.radiance` / `image/aces`):
   * Texture: `https://dl.polyhaven.org/file/ph-assets/Textures/jpg/{res}/{id}/{id}_{map}_{res}.jpg`, where `{map}` ∈ `diff`, `nor_gl`, `rough`, `ao`, `arm` (AO/Rough/Metal packed), `metal`, `disp`; `{res}` ∈ `1k`, `2k`, `4k`, …

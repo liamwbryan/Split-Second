@@ -41,11 +41,11 @@ func _ready() -> void:
 	col.add_theme_constant_override(&"separation", int(14 * ui))
 	add_child(col)
 	var title := Label.new()
-	title.text = "PARKOUR SHOOTER"
+	title.text = "SPLIT SECOND"
 	title.add_theme_font_size_override(&"font_size", int(72 * ui))
 	col.add_child(title)
 	var sub := Label.new()
-	sub.text = "working title  ·  Milestone build"
+	sub.text = "a parkour shooter  ·  milestone build"
 	sub.add_theme_font_size_override(&"font_size", int(20 * ui))
 	sub.add_theme_color_override(&"font_color", Color(1, 1, 1, 0.5))
 	col.add_child(sub)
