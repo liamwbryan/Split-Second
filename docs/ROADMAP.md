@@ -33,6 +33,7 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 - [x] Rooftops Run course: timer, checkpoints, finish, par time, splits vs best, medals, saved best (`Course`, reusable for M6/Race)
 - [x] Blender props: AC units, water tower, vents (MultiMesh); crane lattice + billboard frame (models on the movers, box collision unchanged)
 - [x] Windows export (untested on real hardware yet)
+- [x] **Swing grapple + grapple launcher** (2026-09-26, Liam's request): rope-constraint swing (look away to swing, look at it to zip), stick steering, crouch pays out rope, release pop; a handgun-style launcher in the free hand fires a claw hook on a visible cable (sways with look, stride and swing); Swing station in the gym
 
 ## M2 — Gunplay Core
 - Weapon framework (`WeaponData`): hitscan + projectile, fire modes, magazines/reload, ADS, patterned recoil, movement-aware spread

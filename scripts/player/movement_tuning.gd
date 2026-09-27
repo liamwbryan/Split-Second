@@ -115,8 +115,8 @@ extends Resource
 @export_range(0.0, 90.0, 1.0) var grapple_zip_full_angle: float = 20.0  ## looking within this of the anchor = full zip
 @export_range(0.0, 90.0, 1.0) var grapple_zip_zero_angle: float = 45.0  ## beyond this = pure swing
 @export_range(0.0, 2.0, 0.05) var grapple_swing_gravity: float = 1.0  ## gravity multiplier while swinging
-@export_range(0.0, 60.0, 0.5) var grapple_swing_accel: float = 16.0  ## stick steering along the swing (pump, widen, orbit)
-@export_range(0.0, 40.0, 0.5) var grapple_swing_steer_speed: float = 22.0  ## steering adds speed only up to this
+@export_range(0.0, 60.0, 0.5) var grapple_swing_accel: float = 8.0  ## stick steering along the swing (pump, widen, orbit)
+@export_range(0.0, 40.0, 0.5) var grapple_swing_steer_speed: float = 18.0  ## steering adds speed only up to this
 @export_range(0.0, 10.0, 0.1) var grapple_reel_speed: float = 1.5  ## rope shortens this fast while swinging (lifts you)
 @export_range(0.0, 20.0, 0.5) var grapple_payout_speed: float = 9.0  ## hold crouch: let out rope for a deeper swing
 @export_range(1.0, 10.0, 0.1) var grapple_min_length: float = 3.0

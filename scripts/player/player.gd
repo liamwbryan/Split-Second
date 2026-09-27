@@ -21,6 +21,7 @@ var weapon: HitscanWeapon
 var hud: PlayerHud
 var avatar: RunnerAvatar
 var aim_assist: AimAssist
+var grapple_rope: GrappleRope  ## cosmetic cable + hook
 
 var spawn_position: Vector3 = Vector3.ZERO
 var spawn_yaw: float = 0.0
@@ -65,6 +66,7 @@ func setup(index: int, p_router: InputRouter, p_tuning: MovementTuning, view_roo
 	camera_rig.add_child(weapon)
 	weapon.setup(self, camera_rig, preload("res://scripts/weapons/rifle.tres"))
 	camera_rig.attach_fp_body(weapon.viewmodel)
+	camera_rig.attach_grapple_gun()
 
 	aim_assist = AimAssist.new()
 	aim_assist.setup(self)
@@ -73,9 +75,9 @@ func setup(index: int, p_router: InputRouter, p_tuning: MovementTuning, view_roo
 	add_child(avatar)
 	avatar.setup(self, avatar_layer_bit())
 
-	var rope := GrappleRope.new()
-	view_root.add_child(rope)
-	rope.setup(self)
+	grapple_rope = GrappleRope.new()
+	view_root.add_child(grapple_rope)
+	grapple_rope.setup(self)
 
 	hud = PlayerHud.new()
 	view_root.add_child(hud)

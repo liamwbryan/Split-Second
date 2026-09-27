@@ -13,6 +13,7 @@ const AVATAR_LAYERS := 0xF << 15  # render layers 16-19 (one per player)
 var player: Player
 var camera: Camera3D
 var fp_body: FPBody
+var grapple_gun: GrappleGun
 
 ## Set by the weapon: FOV multiplier while aiming down sights.
 var ads_fov_mult: float = 1.0
@@ -77,6 +78,13 @@ func attach_fp_body(viewmodel: Viewmodel) -> void:
 	add_child(fp_body)
 	fp_body.setup(player, self, viewmodel)
 	fp_body.active = not third_person
+
+
+## Creates the owner-only grapple launcher (held in the free hand).
+func attach_grapple_gun() -> void:
+	grapple_gun = GrappleGun.new()
+	add_child(grapple_gun)
+	grapple_gun.setup(player, self)
 
 
 func viewmodel_layer_bit() -> int:
@@ -193,6 +201,8 @@ func _update_transform(delta: float) -> void:
 		# The gun (a camera child) would otherwise update after this, and the
 		# hands would chase last frame's gun pose.
 		fp_body.viewmodel.update(delta)
+		if grapple_gun:
+			grapple_gun.update(delta)
 		fp_body.sync(delta)
 
 

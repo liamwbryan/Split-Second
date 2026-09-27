@@ -125,7 +125,7 @@ func _run_all() -> void:
 		"momentum_off_identical", "momentum_chain_builds", "momentum_raises_cap", "momentum_kick_boost",
 		"momentum_wallrun_keeps_speed", "momentum_slide_landing", "momentum_slide_hop_bounded",
 		"swing_rope_holds", "swing_release_keeps_velocity", "swing_steer", "swing_payout",
-		"swing_los_break_releases", "grapple_pull_mode",
+		"swing_los_break_releases", "grapple_pull_mode", "grapple_visuals",
 	]
 	for t in tests:
 		if only != "" and t != only:
@@ -726,7 +726,10 @@ func test_fp_arms() -> void:
 	await seconds(0.3)
 	a = await arm_sample()
 	hold(A.GRAPPLE, false)
-	check("fp: grapple arm reaches out in view", a.err_l < 0.02 and a.hand_l.z < -0.35, "err %.3f z %.2f" % [a.err_l, a.hand_l.z])
+	# The free hand holds the raised grapple launcher (it used to reach out open-handed).
+	var launcher := player.camera_rig.grapple_gun
+	check("fp: grapple hand holds the raised launcher in view", a.err_l < 0.02 and a.hand_l.z < -0.22 and a.hand_l.y > -0.2 and launcher.raise > 0.9,
+		"err %.3f hand %s raise %.2f" % [a.err_l, a.hand_l, launcher.raise])
 	player.pitch = 0.0
 
 	await reset(Vector3(1198.3, 0, -1))
@@ -1170,3 +1173,17 @@ func test_grapple_pull_mode() -> void:
 	hold(A.GRAPPLE, false)
 	player.tuning.grapple_swing = true
 	check("pull mode (swing off) still reels straight in", saw(S.GRAPPLE) and closest < 4.0, "closest %.2f" % closest)
+
+
+func test_grapple_visuals() -> void:
+	await _start_swing()
+	await seconds(0.25)
+	var gun := player.camera_rig.grapple_gun
+	var rope := player.grapple_rope
+	check("launcher raised while grappling", gun.raise > 0.95 and gun.visible, "raise %.2f" % gun.raise)
+	check("cable out and hook out of the launcher", rope.visible and rope.phase == GrappleRope.Phase.ATTACHED and gun.hook_out,
+		"visible %s phase %d" % [rope.visible, rope.phase])
+	hold(A.GRAPPLE, false)
+	await seconds(0.6)
+	check("cable reeled back in after release", not rope.visible and not gun.hook_out, "visible %s phase %d" % [rope.visible, rope.phase])
+	check("launcher lowered out of view", gun.raise < 0.01 and not gun.visible, "raise %.2f" % gun.raise)

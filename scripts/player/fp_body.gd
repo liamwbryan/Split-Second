@@ -30,6 +30,10 @@ const GRIP_L_BASIS := Basis(Vector3(0, 1, 0), Vector3(1, 0, 0), Vector3(0, 0, -1
 ## Wrist offsets from the grip sockets, in gun space.
 const WRIST_R := Vector3(0.03, 0.065, 0.02)
 const WRIST_L := Vector3(-0.055, -0.03, 0.07)  ## hand sits at the back of the handguard
+## Left hand on the grapple launcher's grip (launcher space): a pistol grip,
+## fingers down and wrapped, thumb forward, the wrist behind and above it.
+const GRAPPLE_GRIP_BASIS := Basis(Vector3(1, 0, 0), Vector3(0, -1, 0), Vector3(0, 0, -1))
+const WRIST_GRAPPLE := Vector3(-0.03, 0.06, 0.03)
 
 var player: Player
 var rig: CameraRig
@@ -244,11 +248,6 @@ func sync(delta: float) -> void:
 			var p := shoulder_l + forward * 0.45 - right * 0.15 + Vector3.UP * 0.02
 			free_l = _palm_to(p, (Vector3.DOWN + right * 0.3).normalized(), (forward - right * 0.3).normalized(), false)
 			left_open = 1.0
-		PlayerMotor.State.GRAPPLE:  # bracer arm reaching toward the anchor
-			var dir := (motor.grapple_point - shoulder_l).normalized()
-			var p := shoulder_l + dir * 0.5 + Vector3.UP * 0.08  # raised toward the line of sight
-			free_l = _palm_to(p, Vector3.DOWN, dir, false)  # palm down, fingers toward the anchor
-			left_open = 0.3
 		PlayerMotor.State.WALLCLIMB:  # hand over hand up the wall
 			var reach := 0.35 + 0.25 * sin(motor.state_time * 18.0)
 			var reach_r := 0.35 + 0.25 * sin(motor.state_time * 18.0 + PI)
@@ -259,8 +258,19 @@ func sync(delta: float) -> void:
 			left_open = 1.0
 			hands_busy = true
 
+	# Grapple: the free hand holds the launcher while it's up (it takes the
+	# hand off the rifle's handguard too).
+	var gg := rig.grapple_gun
+	var gun_hold := 0.0
+	if gg and gg.raise > 0.0 and gg.grip and not hands_busy:
+		gun_hold = gg.raise * gg.raise * (3.0 - 2.0 * gg.raise)
+		var g := gg.global_transform
+		var hold := Transform3D(g.basis * GRAPPLE_GRIP_BASIS, gg.grip.global_position + g.basis * WRIST_GRAPPLE)
+		free_l = _blend(free_l, hold, gun_hold)
+		left_open *= 1.0 - gun_hold
+
 	# Support hand: onto the handguard for aiming (or always, rifle carry).
-	var sup := 0.0 if hands_busy else viewmodel.support
+	var sup := 0.0 if hands_busy else viewmodel.support * (1.0 - gun_hold)
 	sup = sup * sup * (3.0 - 2.0 * sup)
 	var want_l := _blend(free_l, grip_l, sup)
 	left_open *= 1.0 - sup
