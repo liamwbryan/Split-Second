@@ -48,19 +48,22 @@ func _ready() -> void:
 	tuning = _load_or_new(MOVEMENT_DEFAULT, MovementTuning) as MovementTuning
 	settings = _load_or_new(SETTINGS_DEFAULT, PlayerSettings) as PlayerSettings
 	RenderingServer.global_shader_parameter_set(&"night", 0.0)  # night maps raise it in build_environment()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--scale="):
+			Graphics.render_scale_override = float(arg.substr(8))
+		elif arg.begins_with("--quality="):
+			Graphics.quality = clampi(int(arg.substr(10)), 0, 3) as Graphics.Quality
 	build_environment()
 	_apply_perf_flags()
+	# Chamfered block edges are geometry, chosen at build time: Low skips them
+	# (a quality change applies on the next level load).
+	LevelBuilder.bevel_width = 0.0 if Graphics.quality == Graphics.Quality.LOW else LevelBuilder.BEVEL
 	_b = LevelBuilder.new(self)
 	build_level()
 	_b.finalize()
 
 	ui = CanvasLayer.new()
 	add_child(ui)
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--scale="):
-			Graphics.render_scale_override = float(arg.substr(8))
-		elif arg.begins_with("--quality="):
-			Graphics.quality = clampi(int(arg.substr(10)), 0, 3) as Graphics.Quality
 	split = SplitScreen.new()
 	ui.add_child(split)
 

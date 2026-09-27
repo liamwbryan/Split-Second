@@ -336,12 +336,14 @@ const _FACES := [
 ## chamfers catch light so edges read crisp instead of greybox-sharp
 ## (ART_DIRECTION §2). Capped at a quarter of the block's thinnest side.
 const BEVEL := 0.06
+## The chamfer actually used (LevelBase sets 0 on the Low preset).
+static var bevel_width: float = BEVEL
 
 
 ## Appends a box with per-vertex color and uv2 to a batch: chamfered (44
 ## triangles) when it's thick enough, else a plain 12-triangle box.
 static func _append_box(st: SurfaceTool, xform: Transform3D, size: Vector3, color: Color, uv2: Vector2) -> void:
-	var c := minf(BEVEL, minf(size.x, minf(size.y, size.z)) * 0.25)
+	var c := minf(bevel_width, minf(size.x, minf(size.y, size.z)) * 0.25)
 	if c < 0.004:
 		_append_plain_box(st, xform, size, color, uv2)
 		return

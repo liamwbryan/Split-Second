@@ -33,6 +33,8 @@ uniform float seam_strength = 0.35;  // panel seams on concrete and metal
 // 0 = day, 1 = night: more windows lit and brighter, darker glass. Set per
 // map by LevelBase (RenderingServer.global_shader_parameter_set).
 global uniform float night;
+// 0 on the Low preset (Graphics): skip chamfer highlights and panel seams.
+global uniform float surface_detail;
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -136,6 +138,7 @@ void fragment() {
 
 	// Chamfers (normals between two axes) catch a worn-paint highlight, so
 	// block edges read crisp. Faces are flat-shaded, so this is exact.
+	if (surface_detail > 0.5) {
 	float axis_max = max(an.x, max(an.y, an.z));
 	float edge = 1.0 - smoothstep(0.8, 0.95, axis_max);
 	col = mix(col, min(col * 1.35 + 0.035, vec3(1.0)), edge * edge_wear * (kind == 0 ? 0.5 : 1.0));
@@ -152,6 +155,7 @@ void fragment() {
 		}
 		col *= 1.0 - seam_strength * seam * (1.0 - edge);
 		rough = mix(rough, 0.9, seam * 0.5);
+	}
 	}
 
 	if (UV2.x > 0.5) {

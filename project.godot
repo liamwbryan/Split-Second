@@ -32,6 +32,10 @@ window/stretch/aspect="expand"
 
 [shader_globals]
 
+surface_detail={
+"type": "float",
+"value": 1.0
+}
 night={
 "type": "float",
 "value": 0.0

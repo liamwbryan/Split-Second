@@ -51,6 +51,7 @@ func quality_name() -> String:
 
 ## Applies the preset to a level's environment, sun and player viewports.
 func apply_to_level(env: Environment, sun: DirectionalLight3D, viewports: Array[SubViewport]) -> void:
+	RenderingServer.global_shader_parameter_set(&"surface_detail", 0.0 if quality == Quality.LOW else 1.0)
 	if env:
 		# Remember what the map asked for, so presets can go down *and* back up.
 		if not env.has_meta(&"authored"):
