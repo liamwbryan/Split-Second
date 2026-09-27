@@ -189,6 +189,28 @@ func _capture_all() -> void:
 	await shot("10_grapple")
 	hold(A.GRAPPLE, false)
 
+	# Swing: hanging under a high anchor, looking ahead (the cable runs up out
+	# of view), then glancing up the cable.
+	await _start_swing()
+	player.pitch = deg_to_rad(-8.0)
+	await seconds(0.45)
+	await shot("10b_swing")
+	player.pitch = deg_to_rad(35.0)
+	await seconds(0.12)
+	await shot("10c_swing_look_up")
+	hold(A.GRAPPLE, false)
+	await seconds(0.08)
+	await shot("10d_release")
+	# Third person (what other players see): the cable from the bracer, the claw.
+	if only == "" or "10e".begins_with(only) or only.begins_with("10e"):
+		await _start_swing()
+		player.camera_rig.third_person = true
+		player.pitch = deg_to_rad(20.0)
+		await seconds(0.4)
+		await shot("10e_swing_third")
+		player.camera_rig.third_person = false
+		hold(A.GRAPPLE, false)
+
 	# Grip close-ups: arms tinted light so the fingers read against the dark gun,
 	# seen from the right and from the front-left by a side camera.
 	await reset(Vector3(0, 0, 20))

@@ -108,6 +108,23 @@ extends Resource
 @export_range(0.5, 6.0, 0.1) var grapple_release_distance: float = 2.2
 @export_range(0.0, 15.0, 0.1) var grapple_ground_lift: float = 5.0
 @export_range(0.0, 15.0, 0.1) var grapple_magnet_angle: float = 6.0  ## aim assist toward grapple points
+## Swing grapple: the line is a rope. Look at the anchor to zip in (the pull
+## above); look away and the rope holds its length and you swing under it,
+## steering with the move stick. Off = the old straight pull only.
+@export var grapple_swing: bool = true
+@export_range(0.0, 90.0, 1.0) var grapple_zip_full_angle: float = 20.0  ## looking within this of the anchor = full zip
+@export_range(0.0, 90.0, 1.0) var grapple_zip_zero_angle: float = 45.0  ## beyond this = pure swing
+@export_range(0.0, 2.0, 0.05) var grapple_swing_gravity: float = 1.0  ## gravity multiplier while swinging
+@export_range(0.0, 60.0, 0.5) var grapple_swing_accel: float = 8.0  ## stick steering along the swing (pump, widen, orbit)
+@export_range(0.0, 40.0, 0.5) var grapple_swing_steer_speed: float = 18.0  ## steering adds speed only up to this
+@export_range(0.0, 10.0, 0.1) var grapple_reel_speed: float = 1.5  ## rope shortens this fast while swinging (lifts you)
+@export_range(0.0, 20.0, 0.5) var grapple_payout_speed: float = 9.0  ## hold crouch: let out rope for a deeper swing
+@export_range(1.0, 10.0, 0.1) var grapple_min_length: float = 3.0
+@export_range(0.0, 40.0, 0.5) var grapple_rope_stiffness: float = 14.0  ## how hard an overstretched rope pulls back (1/s)
+@export_range(0.0, 1.0, 0.05) var grapple_swing_cap_decay: float = 0.3  ## soft-cap bleed while swinging (fraction of normal)
+@export_range(0.5, 10.0, 0.1) var grapple_swing_max_time: float = 5.0
+@export_range(0.0, 8.0, 0.1) var grapple_release_pop: float = 2.0  ## upward kick when you let go while rising (up and over)
+@export_range(0.0, 0.3, 0.01) var grapple_los_grace: float = 0.06  ## seconds the line may be blocked before it lets go
 
 @export_group("Momentum")
 ## Prototype (docs/MOMENTUM.md): chaining moves fills a flow meter that raises

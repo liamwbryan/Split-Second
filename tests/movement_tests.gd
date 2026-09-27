@@ -18,6 +18,8 @@ var jumps_seen: Array = []
 var only: String = ""
 var movers: Dictionary = {}
 
+const SWING_ANCHOR := Vector3(2300, 28, -22)
+
 
 func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
@@ -107,6 +109,8 @@ func _build_course() -> void:
 	b.block(Vector3(1895, 0, -30), Vector3(1905, 8, -3), T.RUN)
 	# 1500: long wall on the right to run beside on the ground.
 	b.block(Vector3(1500.6, 0, -60), Vector3(1501.2, 7, 5))
+	# 2300: swing lane: a grapple point 28 m up; swings start in the air at (2300, 16, -6).
+	b.grapple_point(SWING_ANCHOR)
 
 
 func _run_all() -> void:
@@ -120,6 +124,8 @@ func _run_all() -> void:
 		"fp_arms", "course_run", "climb_jump_direction", "mantle_lift_gentle",
 		"momentum_off_identical", "momentum_chain_builds", "momentum_raises_cap", "momentum_kick_boost",
 		"momentum_wallrun_keeps_speed", "momentum_slide_landing", "momentum_slide_hop_bounded",
+		"swing_rope_holds", "swing_release_keeps_velocity", "swing_steer", "swing_payout",
+		"swing_los_break_releases", "grapple_pull_mode", "grapple_visuals",
 	]
 	for t in tests:
 		if only != "" and t != only:
@@ -720,7 +726,10 @@ func test_fp_arms() -> void:
 	await seconds(0.3)
 	a = await arm_sample()
 	hold(A.GRAPPLE, false)
-	check("fp: grapple arm reaches out in view", a.err_l < 0.02 and a.hand_l.z < -0.35, "err %.3f z %.2f" % [a.err_l, a.hand_l.z])
+	# The free hand holds the raised grapple launcher (it used to reach out open-handed).
+	var launcher := player.camera_rig.grapple_gun
+	check("fp: grapple hand holds the raised launcher in view", a.err_l < 0.02 and a.hand_l.z < -0.22 and a.hand_l.y > -0.2 and launcher.raise > 0.9,
+		"err %.3f hand %s raise %.2f" % [a.err_l, a.hand_l, launcher.raise])
 	player.pitch = 0.0
 
 	await reset(Vector3(1198.3, 0, -1))
@@ -1054,3 +1063,127 @@ func test_momentum_slide_hop_bounded() -> void:
 	_momentum(true)
 	await test_slide_hop_bounded()
 	_momentum(false)
+
+
+# --------------------------------------------------------------------------- swing grapple
+
+## Hangs in the air under SWING_ANCHOR, grapples it and looks down (no zip),
+## so the rope swings you forward under the anchor.
+func _start_swing() -> void:
+	await reset(Vector3(2300, 16, -6))
+	player.velocity = Vector3.ZERO
+	var eye := player.global_position + Vector3.UP * player.tuning.eye_height
+	player.pitch = atan2(SWING_ANCHOR.y - eye.y, eye.z - SWING_ANCHOR.z)
+	hold(A.GRAPPLE)
+	await ticks(2)
+	player.pitch = deg_to_rad(-35.0)  # look away from the anchor: a pure swing
+
+
+func test_swing_rope_holds() -> void:
+	await _start_swing()
+	check("swing attached", player.motor.state == S.GRAPPLE, player.motor.state_name())
+	var start_y := player.global_position.y
+	var max_stretch := 0.0
+	var far_top := -INF
+	var top_speed := 0.0
+	var passed := false
+	for i in int(2.6 * 120.0):
+		await get_tree().physics_frame
+		if player.motor.state != S.GRAPPLE:
+			break
+		var chest := player.global_position + Vector3.UP
+		max_stretch = maxf(max_stretch, chest.distance_to(SWING_ANCHOR) - player.motor.grapple_rope_length)
+		top_speed = maxf(top_speed, player.velocity.length())
+		if player.global_position.z < SWING_ANCHOR.z - 2.0:
+			passed = true
+			far_top = maxf(far_top, player.global_position.y)
+	hold(A.GRAPPLE, false)
+	check("rope holds its length (no stretch/snap)", max_stretch < 0.25, "stretch %.2f" % max_stretch)
+	check("swing passes under the anchor", passed)
+	check("swing rises on the far side", far_top > start_y - 3.0, "far top %.2f vs start %.2f" % [far_top, start_y])
+	check("swing stays under the hard cap", top_speed < player.tuning.hard_speed_cap + 0.5, "top %.2f" % top_speed)
+
+
+func test_swing_release_keeps_velocity() -> void:
+	await _start_swing()
+	var before := Vector3.ZERO
+	for i in int(2.5 * 120.0):
+		await get_tree().physics_frame
+		if player.global_position.z < SWING_ANCHOR.z - 3.0 and player.velocity.y > 0.5:
+			break
+	before = player.velocity
+	hold(A.GRAPPLE, false)
+	await ticks(1)
+	var after := player.velocity
+	check("swing release lets go", player.motor.state == S.AIR, player.motor.state_name())
+	check("release keeps horizontal speed", absf(Vector2(after.x, after.z).length() - Vector2(before.x, before.z).length()) < 0.6,
+		"before %.2f after %.2f" % [Vector2(before.x, before.z).length(), Vector2(after.x, after.z).length()])
+	check("release pops you up when rising", after.y > before.y, "vy %.2f -> %.2f" % [before.y, after.y])
+
+
+func test_swing_steer() -> void:
+	await _start_swing()
+	router.scripted_move = Vector2(1, 0)  # stick right: swing out sideways
+	var side := 0.0
+	for i in int(1.6 * 120.0):
+		await get_tree().physics_frame
+		side = maxf(side, player.global_position.x - 2300.0)
+	hold(A.GRAPPLE, false)
+	check("stick steers the swing sideways", side > 3.0, "side %.2f" % side)
+
+
+func test_swing_payout() -> void:
+	await _start_swing()
+	var l0 := player.motor.grapple_rope_length
+	hold(A.CROUCH)
+	await seconds(0.5)
+	var l1 := player.motor.grapple_rope_length
+	hold(A.CROUCH, false)
+	hold(A.GRAPPLE, false)
+	check("holding crouch lets out rope", l1 > l0 + 2.0, "%.2f -> %.2f" % [l0, l1])
+
+
+func test_swing_los_break_releases() -> void:
+	await _start_swing()
+	await seconds(0.3)
+	var chest := player.global_position + Vector3.UP
+	var mid := chest.lerp(SWING_ANCHOR, 0.5)
+	var wall := b.block(mid - Vector3(3, 0.5, 0.5), mid + Vector3(3, 0.5, 0.5))
+	await ticks(2)
+	check("a brief block keeps the rope", player.motor.state == S.GRAPPLE, player.motor.state_name())
+	await ticks(12)
+	check("a blocked line lets go", player.motor.state != S.GRAPPLE, player.motor.state_name())
+	hold(A.GRAPPLE, false)
+	wall.queue_free()
+	await ticks(2)
+
+
+func test_grapple_pull_mode() -> void:
+	player.tuning.grapple_swing = false
+	await reset(Vector3(600, 0, 0))
+	player.pitch = deg_to_rad(-35.0)  # looking away does nothing in pull mode: it still reels you in
+	hold(A.GRAPPLE)
+	player.pitch = atan2(10.0 - player.tuning.eye_height, 20.0)
+	await ticks(3)
+	player.pitch = deg_to_rad(-35.0)
+	var closest := INF
+	for i in 180:
+		await get_tree().physics_frame
+		closest = minf(closest, player.global_position.distance_to(Vector3(600, 10, -20)))
+	hold(A.GRAPPLE, false)
+	player.tuning.grapple_swing = true
+	check("pull mode (swing off) still reels straight in", saw(S.GRAPPLE) and closest < 4.0, "closest %.2f" % closest)
+
+
+func test_grapple_visuals() -> void:
+	await _start_swing()
+	await seconds(0.25)
+	var gun := player.camera_rig.grapple_gun
+	var rope := player.grapple_rope
+	check("launcher raised while grappling", gun.raise > 0.95 and gun.visible, "raise %.2f" % gun.raise)
+	check("cable out and hook out of the launcher", rope.visible and rope.phase == GrappleRope.Phase.ATTACHED and gun.hook_out,
+		"visible %s phase %d" % [rope.visible, rope.phase])
+	hold(A.GRAPPLE, false)
+	await seconds(0.6)
+	check("cable reeled back in after release", not rope.visible and not gun.hook_out, "visible %s phase %d" % [rope.visible, rope.phase])
+	check("launcher lowered out of view", gun.raise < 0.01 and not gun.visible, "raise %.2f" % gun.raise)

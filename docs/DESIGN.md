@@ -49,7 +49,7 @@ The maps are vertical, full of moving parts, and built to be fun to cross. Fun w
 | Wall-kick | A while wall-running or climbing | Push off away from the wall. The direction blends the wall's normal with where you're looking. |
 | Wall-climb | Automatic on head-on wall contact while airborne | Short vertical climb, Mirror's Edge style. A while pushing into the wall (open air behind) hops up the face: no push-off, no turn. A with the stick neutral or back, or with a wall behind (a chimney), kicks off backwards and turns to face away. |
 | Mantle / vault | Automatic | Ledge within reach while moving toward it → mantle. Waist-high cover while fast → vault without losing speed. |
-| Grapple | LB / Q | Cooldown ability. Pulls you toward the hit point and keeps your momentum when released. |
+| Grapple | LB / Q (hold) | Cooldown ability, fired from a handgun-style launcher in the free hand. The cable is a rope. **Look at the anchor to zip in** (the original pull); **look away to swing** under it, steering with the stick to pump, widen or orbit. Hold crouch to let out rope for a deeper swing. Letting go keeps all your momentum (plus a small pop if you're rising), so a swing can carry you up and over walls. `grapple_swing` in the tuning panel switches back to the pull-only grapple. |
 | Melee | R3 / F | Short lunge. |
 
 ### 4.2 Anti-jank rules (how features avoid stepping on each other)
@@ -72,6 +72,7 @@ The maps are vertical, full of moving parts, and built to be fun to cross. Fun w
 - **Wall-run needs forward input:** no accidental attaches when drifting past walls.
 - **Double jump refresh:** touching the ground or a wall refreshes it. Releasing the grapple doesn't, so grappling can't be spammed into unlimited air mobility.
 - **Grapple while wall-running:** allowed. It detaches you from the wall and keeps your momentum.
+- **Swing grapple rules:** the rope only pulls when stretched, so a slack rope lets you fly up and over the anchor. A line blocked for more than `grapple_los_grace` (0.06 s) lets go. Landing with a slack rope ends the grapple. While swinging, the soft speed cap bleeds at 30% of its normal rate (a swing's speed is earned), and the hard cap still holds. The zip and the swing blend by look angle (full zip within 20°, pure swing beyond 45°), so there's no mode switch.
 - **Slide-hop boost:** diminishing returns on consecutive hops. The slide itself soft-caps, so speed stays expressive but bounded.
 
 ### 4.4 Surface language (Mirror's Edge "runner vision")

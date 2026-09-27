@@ -53,3 +53,7 @@ Liam's priority is that every move feels satisfying, including the ordinary ones
 
 1. **Landing:** scale the landing dip, the thump volume and a tiny controller rumble with impact speed, and add a short "stick the landing" window. Pressing jump or crouch within ~80 ms of touchdown gives a clean chime and keeps 100% of your speed (skill feedback without new rules).
 2. **Slide start and double jump:** a quick FOV punch (2–3°) and a 1–2 frame camera squash on slide start, plus a crisp air-puff sound and a faint ring particle under your feet on the double jump (pooled, off on Low). Right now both moves are only audible, and a visual beat on the exact frame sells them.
+
+## Swing grapple (2026-09-26)
+
+The grapple is now a rope you can swing on (DESIGN §4.1). It pairs with the meter: a swing release is a chained move like before, and swing speed bleeds at only 30% of the normal soft-cap rate (`grapple_swing_cap_decay`). So a well-timed swing is one of the ways to carry an over-cap speed into the next wall-run. If momentum stays, grapple anchors on maps should sit so that a swing's low point skims just above the floor. That's where the swing is fastest, and it's the most satisfying line.

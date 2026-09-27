@@ -13,6 +13,7 @@ func _init() -> void:
 		["Rooftop Combo", Vector3(20, 6, -30), -PI * 0.5],
 		["Range", Vector3(12, 0, 25), -PI * 0.5],
 		["Momentum Lane", Vector3(-32, 8, 40), PI * 0.5],
+		["Swing", Vector3(44, 14, 92), -PI * 0.5],
 	]
 
 
@@ -27,6 +28,7 @@ func build_level() -> void:
 	_build_rooftops()
 	_build_range()
 	_build_momentum_lane()
+	_build_swing()
 
 
 func _build_slide_lane() -> void:
@@ -172,3 +174,19 @@ func _build_momentum_lane() -> void:
 	b.ramp(Vector3(-98, 6, 40), Vector3(-112, 0, 40), 8.0, T.BOOST, 0.4)
 	b.label(Vector3(-105, 9, 44.5), "LAND IN A SLIDE", 64, 90)
 	b.label(Vector3(-138, 3, 40), "check your speed (O)", 56, 90)
+
+
+## Swing grapple: from the tower, grapple the beacon and look ahead (not at it)
+## to swing down through the pit and up over the wall onto the far platform.
+## The pad in the pit throws you back up the tower.
+func _build_swing() -> void:
+	var b := _b
+	b.block(Vector3(40, 0, 88), Vector3(48, 14, 96), T.DARK)           # start tower
+	checkpoint(Vector3(44, 14, 92), Vector3(8, 2, 8), -PI * 0.5)
+	b.grapple_point(Vector3(64, 26, 92))                                # swing anchor
+	b.block(Vector3(81.5, 0, 84), Vector3(82.5, 11, 100), T.RUN)       # the wall to swing over
+	b.block(Vector3(86, 0, 84), Vector3(110, 10, 100))                   # landing platform (early or late releases both land)
+	b.grapple_point(Vector3(98, 24, 112))                               # a second anchor to orbit or zip to
+	pad(Vector3(54, 0, 92), Vector3(-4.5, 27, 0))                       # back up the tower
+	b.label(Vector3(54, 19, 92), "SWING: grapple, then look ahead to swing (look at it to zip in)", 56, -90)
+	b.label(Vector3(54, 17.8, 92), "steer with the stick  ·  hold crouch to let out rope  ·  let go on the way up", 44, -90)

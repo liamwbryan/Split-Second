@@ -65,6 +65,11 @@ var wall_side: int = 0
 
 var grapple_cooldown_left: float = 0.0
 var grapple_point: Vector3 = Vector3.ZERO
+## Swing grapple (read-only for presentation): rope length, how much of the
+## pull is on (1 = zipping in, 0 = swinging), and whether the rope is taut.
+var grapple_rope_length: float = 0.0
+var grapple_zip: float = 1.0
+var grapple_taut: bool = false
 
 ## Read-only contact data for presentation (first-person hands, camera).
 ## Movement never reads these back.
@@ -107,6 +112,8 @@ var _surface_vel: Vector3 = Vector3.ZERO
 
 var _grapple_node: Node3D
 var _grapple_local: Vector3
+var _grapple_prev_anchor: Vector3
+var _grapple_blocked_time: float = 0.0
 
 var _shape_node: CollisionShape3D
 var _capsule: CapsuleShape3D
@@ -431,6 +438,14 @@ func _tick_mantle(_delta: float) -> void:
 
 
 func _tick_grapple(delta: float) -> void:
+	if tuning.grapple_swing:
+		_tick_grapple_swing(delta)
+	else:
+		_tick_grapple_pull(delta)
+
+
+## The original straight pull (grapple_swing off): reel in toward the anchor.
+func _tick_grapple_pull(delta: float) -> void:
 	var anchor := _grapple_world_point()
 	var eye := player.global_position + UP * 1.0
 	var to := anchor - eye
@@ -466,6 +481,99 @@ func _tick_grapple(delta: float) -> void:
 	player.velocity = v
 	_air_move(delta, _wish_dir(), tuning.grapple_air_control)
 	_apply_gravity(delta, tuning.grapple_gravity_mult)
+	grapple_point = anchor
+
+
+## Swing grapple. The line is a rope of length `grapple_rope_length` from the
+## anchor to the chest. Looking at the anchor blends in the old zip (pull +
+## take up slack); looking away leaves a pendulum: gravity, the rope's pull and
+## stick steering along the swing. Momentum: every release keeps full velocity.
+func _tick_grapple_swing(delta: float) -> void:
+	var anchor := _grapple_world_point()
+	var chest := player.global_position + UP * 1.0
+	var to := anchor - chest
+	var dist := to.length()
+	var released := not router.is_held(InputRouter.Action.GRAPPLE) and state_time >= tuning.grapple_min_time
+	if released or not _grapple_valid():
+		_end_grapple()
+		return
+	if router.buffered(InputRouter.Action.JUMP, tuning.jump_buffer):
+		# Jump releases; it spends the double jump if you have one (no free refresh).
+		router.consume(InputRouter.Action.JUMP)
+		_end_grapple()
+		if double_jump_ready:
+			_do_double_jump(_wish_dir())
+		return
+	var dir := to / maxf(dist, 0.001)
+	var zip := _zip_weight(look_dir().dot(dir))
+	grapple_zip = zip
+	if state_time >= tuning.grapple_swing_max_time or (zip > 0.5 and dist < tuning.grapple_release_distance):
+		_end_grapple()
+		return
+	if _try_mantle(_h(to), tuning.mantle_max_height, false, -INF):
+		return
+	# The line may brush an edge for a moment; a longer block lets go.
+	var los := _ray(chest, anchor)
+	if not los.is_empty() and chest.distance_to(los.position) < dist - 0.75:
+		_grapple_blocked_time += delta
+		if _grapple_blocked_time > tuning.grapple_los_grace:
+			_end_grapple()
+			return
+	else:
+		_grapple_blocked_time = 0.0
+
+	# Rope length: zipping takes up slack; swinging reels in slowly; crouch lets rope out.
+	var length := grapple_rope_length
+	if zip > 0.0:
+		length = lerpf(length, minf(length, dist), zip)
+	length -= tuning.grapple_reel_speed * delta
+	if _crouch_intent():
+		length += tuning.grapple_payout_speed * delta
+	grapple_rope_length = clampf(length, tuning.grapple_min_length, tuning.grapple_range + 5.0)
+
+	var v := player.velocity
+	# Zip: the old pull, scaled by how directly you look at the anchor.
+	if zip > 0.0:
+		v += dir * tuning.grapple_pull_accel * zip * delta
+		var radial := v.dot(dir)
+		if radial > tuning.grapple_max_speed:
+			v -= dir * (radial - tuning.grapple_max_speed) * zip
+	player.velocity = v
+	if zip > 0.0:
+		_air_move(delta, _wish_dir(), tuning.grapple_air_control * zip)
+	# Swing steering: push along the swing (perpendicular to the rope) toward
+	# the stick direction. Adds speed only up to grapple_swing_steer_speed, so
+	# you can pump a swing up but not accelerate forever.
+	var wish := _wish_dir()
+	if wish.length() > 0.05 and zip < 1.0:
+		var out := -dir
+		var t := wish - out * wish.dot(out)
+		if t.length() > 0.05:
+			var tdir := t.normalized()
+			var add := tuning.grapple_swing_steer_speed * wish.length() - player.velocity.dot(tdir)
+			if add > 0.0:
+				player.velocity += tdir * minf(tuning.grapple_swing_accel * (1.0 - zip) * wish.length() * delta, add)
+	_apply_gravity(delta, lerpf(tuning.grapple_swing_gravity, tuning.grapple_gravity_mult, zip))
+
+	# Rope constraint, in the anchor's frame (anchors can ride movers). Only an
+	# outward pull is removed: a slack rope lets you fly up and over the anchor.
+	var anchor_vel := (anchor - _grapple_prev_anchor) / delta if state_time > delta else Vector3.ZERO
+	_grapple_prev_anchor = anchor
+	var out_dir := -dir
+	var stretch := dist - grapple_rope_length
+	grapple_taut = stretch > -0.05
+	if stretch > 0.0:
+		v = player.velocity
+		var rel := v - anchor_vel
+		var radial_out := rel.dot(out_dir)
+		if radial_out > 0.0:
+			v -= out_dir * radial_out
+		v -= out_dir * minf(stretch * tuning.grapple_rope_stiffness, 12.0)
+		player.velocity = v
+	# Standing on something with a slack rope: you've landed, let go.
+	if player.is_on_floor() and not grapple_taut and zip < 0.5 and state_time > tuning.grapple_min_time + 0.1:
+		_end_grapple()
+		return
 	grapple_point = anchor
 
 
@@ -719,6 +827,11 @@ func _try_grapple() -> bool:
 	_grapple_node = target.node
 	_grapple_local = _grapple_node.to_local(target.point) if _grapple_node else target.point
 	grapple_point = target.point
+	_grapple_prev_anchor = target.point
+	_grapple_blocked_time = 0.0
+	grapple_rope_length = (player.global_position + UP * 1.0).distance_to(target.point)
+	grapple_zip = 1.0
+	grapple_taut = true
 	var v := player.velocity
 	if player.is_on_floor():
 		v.y = maxf(v.y, tuning.grapple_ground_lift)
@@ -726,6 +839,15 @@ func _try_grapple() -> bool:
 	_set_state(State.GRAPPLE)
 	grapple_attached.emit(grapple_point)
 	return true
+
+
+## How much of the zip pull is on, from how directly you look at the anchor:
+## 1 within grapple_zip_full_angle, 0 beyond grapple_zip_zero_angle.
+func _zip_weight(look_cos: float) -> float:
+	var angle := rad_to_deg(acos(clampf(look_cos, -1.0, 1.0)))
+	var span := maxf(tuning.grapple_zip_zero_angle - tuning.grapple_zip_full_angle, 0.001)
+	var f := clampf((angle - tuning.grapple_zip_full_angle) / span, 0.0, 1.0)
+	return 1.0 - f * f * (3.0 - 2.0 * f)
 
 
 ## External impulse from level features (jump pads). Momentum: replaced by
@@ -742,6 +864,10 @@ func launch(launch_velocity: Vector3) -> void:
 
 
 func _end_grapple() -> void:
+	# Swing release: a little pop if you were rising, so a swing carries you
+	# up and over the thing you swung toward. Momentum: otherwise kept in full.
+	if tuning.grapple_swing and not player.is_on_floor() and player.velocity.y > 0.0:
+		player.velocity.y += tuning.grapple_release_pop
 	_set_state(State.GROUND if player.is_on_floor() else State.AIR)
 	if state == State.AIR:
 		_momentum_link(true)
@@ -864,7 +990,10 @@ func _apply_speed_caps(delta: float) -> void:
 	var cap := soft_speed_cap()
 	if speed <= cap:
 		return
-	var capped := minf(maxf(cap, speed - tuning.soft_cap_decay * delta), tuning.hard_speed_cap)
+	var decay := tuning.soft_cap_decay
+	if state == State.GRAPPLE and tuning.grapple_swing:
+		decay *= lerpf(tuning.grapple_swing_cap_decay, 1.0, grapple_zip)  # a swing's speed is earned: bleed it gently
+	var capped := minf(maxf(cap, speed - decay * delta), tuning.hard_speed_cap)
 	h = h / speed * capped
 	player.velocity = Vector3(h.x, v.y, h.z)
 
