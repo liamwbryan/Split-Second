@@ -37,6 +37,7 @@ func build_level() -> void:
 	_se_billboard_block()
 	_sw_residential()
 	_perimeter()
+	_fill()
 	props.skyline(Vector3.ZERO, 110.0, 420.0, 180, 7)
 	props.finalize()
 	_course()
@@ -316,6 +317,64 @@ func _sw_residential() -> void:
 	target(Vector3(-20, 8, 20), Vector3(0, 0, 2))
 	target(Vector3(-34, 12, 34), Vector3.ZERO)
 	target(Vector3(-4, 0, 40), Vector3(0, 0, 4))
+
+
+# --------------------------------------------------------------------------- fill
+
+## "Big but full" (MAP_BRIEFS §0.4): cover in the open streets and roofs so
+## every stretch has something to fight from, vault or climb. Kept off the
+## course line (SW street west half → fire escape), dummy paths, the
+## crossroads finish and the rotating billboard's sweep.
+func _fill() -> void:
+	# South street (course start runs up its west half: keep x < -1 clear).
+	props.barrier(Vector3(3, 0, 47), 90.0)
+	props.kiosk(Vector3(3.5, 0, 22), 90.0, Color(1.0, 0.35, 0.7))
+	props.crates(Vector3(2.5, 0, 13), 0.0, 3)
+	props.planter(Vector3(7, 0, 34), Vector2(1.4, 2.4))
+	props.planter(Vector3(-7, 0, 50), Vector2(1.4, 2.4))
+	# North street.
+	props.barrier(Vector3(-2, 0, -18), 90.0)
+	props.barrier(Vector3(2.5, 0, -46), 0.0)
+	props.kiosk(Vector3(-3.5, 0, -28), 90.0)
+	props.crates(Vector3(2.0, 0, -12), 90.0, 2)
+	props.planter(Vector3(-7, 0, -38), Vector2(1.4, 2.4))
+	# East street (under the container bridge).
+	props.barrier(Vector3(16, 0, 2.5), 0.0)
+	props.crates(Vector3(36, 0, 3.5), 0.0, 2)
+	props.kiosk(Vector3(50, 0, -3), 0.0, Color(1.0, 0.75, 0.3))
+	props.barrier(Vector3(56, 0, 3), 0.0)
+	# West street.
+	props.barrier(Vector3(-17, 0, -2.5), 0.0)
+	props.kiosk(Vector3(-27, 0, 3), 0.0, Color(1.0, 0.35, 0.7))
+	props.crates(Vector3(-46, 0, -3.5), 0.0, 3)
+	props.barrier(Vector3(-55, 0, 2), 0.0)
+	# NW office roof (16): the dummy strafes x -29..-19 at z -38.
+	props.crates(Vector3(-37, 16, -12), 0.0, 3)
+	props.barrier(Vector3(-11, 16, -30), 90.0)
+	props.barrier(Vector3(-34, 16, -34), 0.0)
+	# Tall wing roof (28).
+	props.crates(Vector3(-45, 28, -57), 0.0, 2)
+	props.barrier(Vector3(-47, 28, -43), 0.0)
+	# SE roof (20): the billboard sweeps 7.5 m around (34, 30).
+	props.barrier(Vector3(43, 20, 27), 90.0)
+	props.crates(Vector3(40, 20, 41), 0.0, 3)
+	props.barrier(Vector3(24.5, 20, 34), 90.0)
+	# F roof (14).
+	props.crates(Vector3(10.5, 14, 40), 0.0, 2)
+	props.barrier(Vector3(13, 14, 54), 0.0)
+	# Terraces (8 / 12 / 16): the course crosses x -32..-8 near z 16–24 and
+	# climbs at x -30..-18.
+	props.barrier(Vector3(-39, 8, 20), 90.0)
+	props.crates(Vector3(-40, 8, 10), 0.0, 2)
+	props.kiosk(Vector3(-12, 12, 31), 90.0)
+	props.barrier(Vector3(-40, 12, 36), 0.0)
+	props.crates(Vector3(-40, 16, 42), 0.0, 3)
+	props.barrier(Vector3(-33, 16, 53), 0.0)
+	# West strip roof (10): alternating cover down the long edge route.
+	props.barrier(Vector3(-51, 10, 18), 0.0)
+	props.crates(Vector3(-57, 10, 28), 0.0, 2)
+	props.barrier(Vector3(-51, 10, 38), 0.0)
+	props.kiosk(Vector3(-56, 10, 48), 90.0)
 
 
 # --------------------------------------------------------------------------- perimeter

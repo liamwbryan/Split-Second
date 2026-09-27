@@ -119,6 +119,45 @@ func street_light(pos: Vector3, yaw_deg: float) -> void:
 	arm.rotation.y = deg_to_rad(yaw_deg)
 
 
+## Jersey barrier: 1.0 m vault/crouch cover. yaw 0 = runs along x.
+func barrier(pos: Vector3, yaw_deg: float = 0.0, length: float = 3.2) -> void:
+	var rot := Vector3(0, yaw_deg, 0)
+	b.box(pos + Vector3.UP * 0.5, Vector3(length, 1.0, 0.6), T.DARK, rot)
+	b.deco(pos + Vector3.UP * 0.72, Vector3(length + 0.02, 0.14, 0.62), T.BOOST, rot)  # hazard stripe
+
+
+## A stack of 1.2 m cargo crates (1 to 3 high, offset): vault the low ones,
+## climb the stack. `stack` picks the shape.
+func crates(pos: Vector3, yaw_deg: float = 0.0, stack: int = 2) -> void:
+	var basis := Basis(Vector3.UP, deg_to_rad(yaw_deg))
+	var rot := Vector3(0, yaw_deg, 0)
+	var tints := [Color(0.35, 0.42, 0.5), Color(0.62, 0.6, 0.55), Color(0.3, 0.5, 0.45)]
+	var spots := [Vector3(0, 0.6, 0), Vector3(1.25, 0.6, 0.1), Vector3(0.6, 1.8, 0.0)]
+	for i in clampi(stack, 1, 3):
+		b.box(pos + basis * spots[i], Vector3(1.2, 1.2, 1.2), T.NEUTRAL, rot, tints[i % tints.size()])
+
+
+## Holo kiosk: 2.4 m sightline breaker with a glowing ad panel on both faces.
+func kiosk(pos: Vector3, yaw_deg: float = 0.0, glow := Color(0.3, 0.85, 1.0)) -> void:
+	var rot := Vector3(0, yaw_deg, 0)
+	var basis := Basis(Vector3.UP, deg_to_rad(yaw_deg))
+	b.box(pos + Vector3.UP * 1.2, Vector3(2.0, 2.4, 1.2), T.METAL, rot)
+	for side: float in [-1.0, 1.0]:
+		b.deco(pos + basis * Vector3(0, 1.4, 0.62 * side), Vector3(1.7, 1.4, 0.04), T.LIGHT, rot, glow)
+
+
+## Planter: 0.9 m box with a small tree (the tree is visual only).
+func planter(pos: Vector3, size: Vector2 = Vector2(2.4, 1.4)) -> void:
+	b.box(pos + Vector3.UP * 0.45, Vector3(size.x, 0.9, size.y), T.NEUTRAL)
+	b.deco(pos + Vector3.UP * 0.92, Vector3(size.x - 0.2, 0.06, size.y - 0.2), T.NEUTRAL, Vector3.ZERO, Color(0.25, 0.42, 0.2))
+	var trunk := _visual_cylinder(0.08, 1.6, Color(0.3, 0.24, 0.18))
+	root.add_child(trunk)
+	trunk.global_position = pos + Vector3.UP * 1.7
+	var crown := _visual_sphere(0.8, Color(0.28, 0.5, 0.25))
+	root.add_child(crown)
+	crown.global_position = pos + Vector3.UP * 2.8
+
+
 ## Non-colliding skyline boxes far outside the map, fading into haze.
 func skyline(center: Vector3, inner: float, outer: float, count: int, seed_value: int) -> void:
 	var rng := RandomNumberGenerator.new()
