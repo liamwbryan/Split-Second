@@ -54,6 +54,22 @@ func block(min_corner: Vector3, max_corner: Vector3, tag: Tag = Tag.NEUTRAL) -> 
 	return box((min_corner + max_corner) * 0.5, (max_corner - min_corner).abs(), tag)
 
 
+## Collision-only box (the visual comes from elsewhere, e.g. a prop model).
+func collider(center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, rotation_deg: Vector3 = Vector3.ZERO) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box_shape := BoxShape3D.new()
+	box_shape.size = size
+	shape.shape = box_shape
+	body.add_child(shape)
+	root.add_child(body)
+	body.global_transform = Transform3D(Basis.from_euler(rotation_deg * (PI / 180.0)), center)
+	body.set_meta(&"surface", tag)
+	return body
+
+
 ## Visual-only box (no collision): lane markings, trim, dressing.
 func deco(center: Vector3, size: Vector3, tag: Tag = Tag.NEUTRAL, rotation_deg: Vector3 = Vector3.ZERO) -> void:
 	var basis := Basis.from_euler(rotation_deg * (PI / 180.0))

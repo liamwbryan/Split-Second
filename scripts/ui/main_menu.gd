@@ -2,7 +2,7 @@ extends Control
 ## Title screen / level select. Keyboard, mouse and gamepad navigable.
 
 const LEVELS := [
-	["Rooftops", "res://scenes/rooftops.tscn", "Flagship map: city rooftops, crane, billboard, lift."],
+	["Rooftops", "res://scenes/rooftops.tscn", "Rooftops Run time trial: city rooftops, crane, billboard, lift."],
 	["Movement Gym", "res://scenes/gym.tscn", "One station per move, plus a shooting range."],
 ]
 
@@ -10,6 +10,15 @@ var _first: Button
 
 
 func _ready() -> void:
+	# `-- --level=rooftops` skips the menu (exported builds can't take a scene
+	# path; used to time level loads and for quick tests).
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--level="):
+			var want := arg.substr(8).to_lower()
+			for level in LEVELS:
+				if String(level[0]).to_lower().begins_with(want):
+					get_tree().change_scene_to_file.call_deferred(level[1])
+					return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	OS.low_processor_usage_mode = true  # static menu: only redraw when something changes
 	tree_exiting.connect(func() -> void: OS.low_processor_usage_mode = false)

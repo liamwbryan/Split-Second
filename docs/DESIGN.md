@@ -47,7 +47,7 @@ The maps are vertical, full of moving parts, and built to be fun to cross. Fun w
 | Air strafe | LS + look | Steer in the air without losing speed. You can't gain unlimited speed from it. |
 | Wall-run | Automatic on glancing wall contact while airborne and moving forward | Gravity pulls harder the longer you run. Chain wall to wall. The camera tilts away from the wall. |
 | Wall-kick | A while wall-running or climbing | Push off away from the wall. The direction blends the wall's normal with where you're looking. |
-| Wall-climb | Automatic on head-on wall contact while airborne | Short vertical climb, Mirror's Edge style. A pushes you off backwards. |
+| Wall-climb | Automatic on head-on wall contact while airborne | Short vertical climb, Mirror's Edge style. A while pushing into the wall (open air behind) hops up the face: no push-off, no turn. A with the stick neutral or back, or with a wall behind (a chimney), kicks off backwards and turns to face away. |
 | Mantle / vault | Automatic | Ledge within reach while moving toward it → mantle. Waist-high cover while fast → vault without losing speed. |
 | Grapple | LB / Q | Cooldown ability. Pulls you toward the hit point and keeps your momentum when released. |
 | Melee | R3 / F | Short lunge. |

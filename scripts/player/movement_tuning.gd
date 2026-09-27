@@ -76,7 +76,9 @@ extends Resource
 @export_range(0.0, 30.0, 0.5) var climb_max_fall: float = 9.0  ## falling faster than this can't start a climb
 @export_range(0.0, 15.0, 0.1) var climb_kick_up: float = 6.0
 @export_range(0.0, 15.0, 0.1) var climb_kick_out: float = 6.5
-@export var climb_kick_auto_turn: bool = true
+@export_range(0.0, 15.0, 0.1) var climb_hop_up: float = 6.5  ## jump while pushing into the wall: hop up it (no kick, no turn)
+@export_range(1.0, 10.0, 0.1) var climb_chimney_reach: float = 5.0  ## ...unless a wall is this close behind: then kick across (chimney)
+@export var climb_kick_auto_turn: bool = true  ## jump without pushing into the wall: kick off and turn to face away
 @export_range(0.05, 0.6, 0.01) var climb_turn_time: float = 0.2
 
 @export_group("Mantle & Vault")
@@ -84,7 +86,7 @@ extends Resource
 @export_range(0.5, 3.5, 0.05) var mantle_max_height: float = 1.9  ## ledge above feet, in air
 @export_range(0.3, 2.5, 0.05) var ground_mantle_max_height: float = 1.4  ## jump-to-mantle from ground
 @export_range(0.1, 1.5, 0.05) var mantle_reach: float = 0.55
-@export_range(0.05, 1.0, 0.01) var mantle_time_base: float = 0.16
+@export_range(0.05, 1.0, 0.01) var mantle_time_base: float = 0.24
 @export_range(0.0, 0.5, 0.01) var mantle_time_per_meter: float = 0.08
 @export_range(0.0, 15.0, 0.1) var mantle_exit_speed: float = 5.5
 @export_range(0.0, 1.0, 0.01) var mantle_speed_keep: float = 0.6
@@ -110,6 +112,7 @@ extends Resource
 @export_range(0.0, 30.0, 0.5) var wallrun_camera_tilt: float = 9.0
 @export_range(0.0, 10.0, 0.1) var strafe_camera_tilt: float = 1.2
 @export_range(0.0, 10.0, 0.1) var slide_camera_tilt: float = 2.5
+@export_range(0.0, 25.0, 0.5) var mantle_camera_nod: float = 15.0  ## degrees the view dips mid-mantle (shows the hand plants)
 @export_range(0.0, 30.0, 0.5) var speed_fov_add: float = 12.0
 @export_range(0.0, 30.0, 0.5) var speed_fov_min: float = 9.0  ## speed where FOV starts widening
 @export_range(0.0, 50.0, 0.5) var speed_fov_max: float = 22.0

@@ -14,6 +14,7 @@ const SETTINGS_DEFAULT := "res://tuning/player_settings_default.tres"
 var stations: Array = [["Start", Vector3.ZERO, 0.0]]
 
 var players: Array[Player] = []
+var course: Course              ## optional timed course (build it in build_level via make_course)
 var tuning: MovementTuning
 var settings: PlayerSettings
 var split: SplitScreen
@@ -166,6 +167,8 @@ func spawn_player(router: InputRouter) -> Player:
 	var s: Array = stations[0]
 	player.spawn(s[1], s[2])
 	players.append(player)
+	if course:
+		course.add_player(player)
 	return player
 
 
@@ -196,12 +199,22 @@ func _cycle_station(step: int) -> void:
 
 func teleport(player: Player, station: int) -> void:
 	var s: Array = stations[station]
+	if course:
+		course.on_teleport(player)
 	player.spawn(s[1], s[2])
 
 
 # --------------------------------------------------------------------------- level
 
 # --------------------------------------------------------------------------- features
+
+## Creates this level's course; add gates to it, then call course.finalize().
+func make_course(id: String, title: String, par: float) -> Course:
+	course = Course.new()
+	add_child(course)
+	course.setup(id, title, par)
+	return course
+
 
 func checkpoint(pos: Vector3, size: Vector3, yaw: float) -> void:
 	var z := TriggerZone.create(self, TriggerZone.Kind.CHECKPOINT, pos + Vector3.UP * size.y * 0.5, size)

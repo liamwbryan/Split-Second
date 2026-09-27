@@ -50,6 +50,19 @@ func _lint(path: String) -> void:
 		q.transform = Transform3D(Basis.IDENTITY, pos + Vector3.UP * 1.0)
 		if not space.intersect_shape(q, 1).is_empty():
 			_fail("%s: station '%s' spawns inside geometry" % [path.get_file(), s[0]])
+	# Course gates: the base sits on a walkable surface and a player fits inside.
+	var course = gym.get("course")  # untyped: this script compiles before autoloads exist
+	if course:
+		var all: Array = [course.start]
+		all.append_array(course.gates)
+		all.append(course.finish)
+		for g in all:
+			q.transform = Transform3D(Basis.IDENTITY, g.position + Vector3.UP * 1.0)
+			if not space.intersect_shape(q, 1).is_empty():
+				_fail("%s: course gate '%s' overlaps geometry" % [path.get_file(), g.name])
+			var floor_hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(g.position + Vector3.UP * 0.3, g.position + Vector3.DOWN * 0.5, 1))
+			if floor_hit.is_empty():
+				_fail("%s: course gate '%s' has no floor under it" % [path.get_file(), g.name])
 	print("level lint %s: %d dummies, %d stations, %d failures so far" % [path.get_file(), count, gym.stations.size(), failures])
 	gym.queue_free()
 	await process_frame

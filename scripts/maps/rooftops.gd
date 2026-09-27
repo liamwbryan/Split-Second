@@ -26,7 +26,7 @@ func _init() -> void:
 
 
 func intro_hint() -> String:
-	return "ROOFTOPS   ·   Hold Q grapple   ·   [ ] stations   ·   T restart"
+	return "ROOFTOPS RUN   ·   leave the start to begin   ·   Hold Q grapple   ·   T restart run   ·   [ ] stations"
 
 
 func build_level() -> void:
@@ -38,6 +38,26 @@ func build_level() -> void:
 	_sw_residential()
 	_perimeter()
 	props.skyline(Vector3.ZERO, 110.0, 420.0, 180, 7)
+	props.finalize()
+	_course()
+
+
+# --------------------------------------------------------------------------- course
+
+## "Rooftops Run" (DESIGN §7.5): fire escape → terraces → street-billboard
+## wall-run → billboard roof → skybridge → up the construction tower → crane
+## → office roof → drop to the crossroads. Par is a first guess until timed.
+func _course() -> void:
+	var c := make_course("rooftops_run", "Rooftops Run", 75.0)
+	c.set_start(Vector3(-2, 0, 54), 0.0)
+	c.add_gate("Fire escape", Vector3(-12, 8, 19))
+	c.add_gate("Top terrace", Vector3(-13, 16, 48))
+	c.add_gate("Billboard roof", Vector3(30, 20, 19))
+	c.add_gate("Construction tower", Vector3(24, 15, -15), 2.5)
+	c.add_gate("Crane roof", Vector3(15, 35, -15), 2.5)
+	c.add_gate("Office roof", Vector3(-30, 16, -40))
+	c.set_finish(Vector3(0, 0, 0))
+	c.finalize()
 
 
 # --------------------------------------------------------------------------- streets

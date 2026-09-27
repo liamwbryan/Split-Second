@@ -28,10 +28,10 @@ See [DESIGN.md](DESIGN.md) for the what and why.
 - [x] Runner avatar (UAL mannequin + Blender helmet/jump-kit, player-color accents, state-driven animation)
 - [x] Blender-modeled carbine (viewmodel); stealth-agent redesign of the runner
 - [x] Mac + Windows export builds (`tools/build.sh`); quality presets; baked SFX; shader baker
-- [ ] **First-person body awareness** (IK hands on gun/ledges/walls, legs): in progress, see HANDOFF next steps
+- [x] **First-person body awareness** (IK hands on gun/ledges/walls, legs): tuning pass done; mantle plants still brief (see HANDOFF)
 - [ ] Third-person rifle on the avatar
-- [ ] Rooftops Run course: timer, checkpoints, finish, par time
-- [ ] Blender props: AC units, water tower, crane lattice, vents, billboard frame
+- [x] Rooftops Run course: timer, checkpoints, finish, par time, splits vs best, medals, saved best (`Course`, reusable for M6/Race)
+- [ ] Blender props: ~~AC units, water tower, vents~~ done (MultiMesh); crane lattice, billboard frame left
 - [x] Windows export (untested on real hardware yet)
 
 ## M2 — Gunplay Core

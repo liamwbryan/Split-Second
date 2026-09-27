@@ -103,6 +103,8 @@ func _build_course() -> void:
 	wall_mover.move_time = 8.0
 	wall_mover.pause_time = 0.0
 	b.attach_box(wall_mover, Vector3(0, 3.5, 0), Vector3(0.6, 7, 50), T.RUN)
+	# 1900: tall climb wall (8 m) facing +Z at z=-3.
+	b.block(Vector3(1895, 0, -30), Vector3(1905, 8, -3), T.RUN)
 	# 1500: long wall on the right to run beside on the ground.
 	b.block(Vector3(1500.6, 0, -60), Vector3(1501.2, 7, 5))
 
@@ -115,6 +117,7 @@ func _run_all() -> void:
 		"grapple", "coyote_jump", "jump_buffer_bhop", "ramp_slide_accel", "chimney",
 		"corridor_chain", "grapple_into_mantle", "wall_coyote_kick", "ground_wall_no_snag",
 		"shoot_dummy", "slide_release_stands", "ride_lift", "jump_off_moving_platform", "wallrun_moving_wall", "keyboard_bindings", "keyboard_grapple", "grapple_release", "grapple_tap_yank",
+		"fp_arms", "course_run", "climb_jump_direction",
 	]
 	for t in tests:
 		if only != "" and t != only:
@@ -630,3 +633,216 @@ func test_wallrun_moving_wall() -> void:
 	await seconds(0.8)
 	check("still on the moving wall", player.motor.state == S.WALLRUN, player.motor.state_name())
 	check("carried by wall (faster than run speed)", -player.velocity.z > player.tuning.wallrun_target_speed + 1.0, "vz %.2f" % player.velocity.z)
+
+
+# --------------------------------------------------------------------------- first-person arms
+
+var _arms: Dictionary = {}
+var _shoulder_track: PackedVector3Array = []
+
+
+func _track_shoulder() -> void:
+	var sk := player.camera_rig.fp_body.skeleton
+	var cam_inv := player.camera_rig.camera.global_transform.affine_inverse()
+	_shoulder_track.append(cam_inv * (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("upperarm_r")).origin))
+
+
+## Camera-space arm data from the posed skeleton (modifier results only exist
+## during skeleton_updated). Keys: hand_r/l, err_r/l (m), shoulder_r/l.
+func arm_sample() -> Dictionary:
+	var sk := player.camera_rig.fp_body.skeleton
+	sk.skeleton_updated.connect(_grab_arms, CONNECT_ONE_SHOT)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	return _arms
+
+
+func _grab_arms() -> void:
+	var body := player.camera_rig.fp_body
+	var sk := body.skeleton
+	var cam_inv := player.camera_rig.camera.global_transform.affine_inverse()
+	for side in ["r", "l"]:
+		var hand := sk.global_transform * sk.get_bone_global_pose(sk.find_bone("hand_" + side)).origin
+		var target := (body.get_node("Target" + side.to_upper()) as Node3D).global_position
+		_arms["hand_" + side] = cam_inv * hand
+		_arms["err_" + side] = hand.distance_to(target)
+		_arms["shoulder_" + side] = cam_inv * (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("upperarm_" + side)).origin)
+
+
+func test_fp_arms() -> void:
+	await reset(Vector3(20, 0, 0))
+	await seconds(0.3)
+	var a := await arm_sample()
+	check("fp: idle hands on their targets", a.err_r < 0.02 and a.err_l < 0.02, "err r %.3f l %.3f" % [a.err_r, a.err_l])
+	# SMG carry: one hand at the hip, the support hand joins to aim.
+	var vm := player.camera_rig.fp_body.viewmodel
+	var cam_inv := player.camera_rig.camera.global_transform.affine_inverse()
+	var off_gun: float = a.hand_l.distance_to(cam_inv * vm.grip_l.global_position)
+	check("fp: hip carry is one-handed", off_gun > 0.2, "left hand %.2f m from the handguard" % off_gun)
+	hold(A.ADS)
+	await seconds(0.35)
+	a = await arm_sample()
+	cam_inv = player.camera_rig.camera.global_transform.affine_inverse()
+	var on_gun: float = a.hand_l.distance_to(cam_inv * vm.grip_l.global_position)
+	hold(A.ADS, false)
+	check("fp: aiming brings the support hand on", on_gun < 0.12 and a.err_l < 0.02, "left hand %.2f m from the handguard, err %.3f" % [on_gun, a.err_l])
+	await seconds(0.3)
+	# Regression: targets smoothed in world space trailed a moving body by
+	# speed / rate, so at sprint speed the hands fell behind the camera.
+	router.scripted_move = Vector2(0, 1)
+	await seconds(0.7)
+	a = await arm_sample()
+	check("fp: sprinting right hand stays on the grip", a.err_r < 0.02, "err %.3f" % a.err_r)
+	check("fp: sprinting right hand in front of the eye", a.hand_r.z < -0.25, "z %.2f" % a.hand_r.z)
+	# Regression: the neck anchor read the clip's neck a frame late, so the
+	# sprint clip's bounce shook the shoulders (and arms) against the camera.
+	_shoulder_track.clear()
+	var sk := player.camera_rig.fp_body.skeleton
+	sk.skeleton_updated.connect(_track_shoulder)
+	await seconds(0.4)
+	sk.skeleton_updated.disconnect(_track_shoulder)
+	var worst := 0.0
+	for i in range(2, _shoulder_track.size()):
+		worst = maxf(worst, (_shoulder_track[i] - 2.0 * _shoulder_track[i - 1] + _shoulder_track[i - 2]).length())
+	check("fp: shoulders steady against the camera while sprinting", _shoulder_track.size() > 10 and worst < 0.001, "jerk %.1f mm over %d frames" % [worst * 1000.0, _shoulder_track.size()])
+	hold(A.CROUCH)
+	await seconds(0.25)
+	a = await arm_sample()
+	hold(A.CROUCH, false)
+	check("fp: slide keeps shoulders under the eye", a.shoulder_l.y > -0.45 and a.shoulder_r.y > -0.45, "y %.2f / %.2f" % [a.shoulder_l.y, a.shoulder_r.y])
+	check("fp: slide gun hand reaches", a.err_r < 0.06, "err %.3f" % a.err_r)
+
+	await reset(Vector3(600, 0, 0))
+	player.pitch = atan2(10.0 - player.tuning.eye_height, 20.0)
+	hold(A.GRAPPLE)
+	await seconds(0.3)
+	a = await arm_sample()
+	hold(A.GRAPPLE, false)
+	check("fp: grapple arm reaches out in view", a.err_l < 0.02 and a.hand_l.z < -0.35, "err %.3f z %.2f" % [a.err_l, a.hand_l.z])
+	player.pitch = 0.0
+
+	await reset(Vector3(1198.3, 0, -1))
+	router.scripted_move = Vector2(-0.3, 1)
+	await seconds(0.25)
+	await tap(A.JUMP)
+	router.scripted_move = Vector2(0, 1)
+	var t := 0.0
+	while player.motor.state != S.WALLRUN and t < 2.0:
+		await get_tree().physics_frame
+		t += 1.0 / 120.0
+	await seconds(0.3)
+	a = await arm_sample()
+	check("fp: wall-run hand on the wall ahead", player.motor.state == S.WALLRUN and a.err_l < 0.03 and a.hand_l.z < -0.25, "%s err %.3f z %.2f" % [player.motor.state_name(), a.err_l, a.hand_l.z])
+
+
+# --------------------------------------------------------------------------- course
+
+func place(pos: Vector3) -> void:
+	player.motor.reset_to(pos)
+	await ticks(2)
+
+
+func test_course_run() -> void:
+	# 1800: start, two gates straight ahead, finish.
+	var c := Course.new()
+	add_child(c)
+	c.setup("test_course", "Test", 10.0)
+	c.save_records = false
+	c.best_time = 0.0
+	c.best_splits = PackedFloat32Array()
+	c.set_start(Vector3(1800, 0, 0), 0.0, 2.0)
+	c.add_gate("A", Vector3(1800, 0, -10), 2.0)
+	c.add_gate("B", Vector3(1800, 0, -20), 2.0)
+	c.set_finish(Vector3(1800, 0, -30), 2.0)
+	c.finalize()
+	c.add_player(player)
+	var run := c.run_of(player)
+
+	c.restart(player)
+	await ticks(3)
+	check("course: armed in the start zone", run.state == Course.RunState.ARMED and run.time == 0.0, str(run.state))
+	check("course: T restarts the run", player.restart_handler.is_valid())
+	router.scripted_move = Vector2(0, 1)
+	var waited := 0
+	while run.state == Course.RunState.ARMED and waited < 240:
+		await get_tree().physics_frame
+		waited += 1
+	router.scripted_move = Vector2.ZERO
+	await seconds(0.3)
+	check("course: clock starts on leaving the start", run.state == Course.RunState.RUNNING and run.time > 0.2, "%s %.2f" % [run.state, run.time])
+	await place(Vector3(1800, 0, -20))
+	check("course: gates only count in order", run.next_gate == 0, "next %d" % run.next_gate)
+	await place(Vector3(1800, 0, -10))
+	check("course: first gate counts", run.next_gate == 1 and run.splits.size() == 1, "next %d" % run.next_gate)
+	check("course: gate is the new respawn", player.spawn_position.distance_to(Vector3(1800, 0, -10)) < 0.01)
+	check("course: respawn faces the next gate", absf(player.spawn_yaw) < 0.01, "yaw %.2f" % player.spawn_yaw)
+	await place(Vector3(1800, 0, -30))
+	check("course: finish needs every gate", run.state == Course.RunState.RUNNING)
+	await place(Vector3(1800, 0, -20))
+	var t_before := run.time
+	await place(Vector3(1800, 0, -30))
+	check("course: finish stops the clock", run.state == Course.RunState.FINISHED and run.splits.size() == 2, str(run.state))
+	check("course: first finish is the best", is_equal_approx(c.best_time, run.time) and c.best_splits.size() == 2, "%.2f vs %.2f" % [c.best_time, run.time])
+	await ticks(10)
+	check("course: clock stays stopped", run.time <= t_before + 0.05, "%.2f" % run.time)
+	check("course: medal thresholds", Course.medal(9.9, 10.0) == "GOLD" and Course.medal(11.0, 10.0) == "SILVER" and Course.medal(20.0, 10.0) == "")
+	check("course: time format", Course.format_time(75.456) == "1:15.46", Course.format_time(75.456))
+
+	c.restart(player)
+	await ticks(3)
+	check("course: restart re-arms at the start", run.state == Course.RunState.ARMED and run.next_gate == 0 and player.global_position.distance_to(Vector3(1800, 0, 0)) < 0.5, str(run.state))
+	router.scripted_move = Vector2(0, 1)
+	await seconds(0.8)
+	router.scripted_move = Vector2.ZERO
+	c.on_teleport(player)
+	check("course: teleporting mid-run cancels it", run.state == Course.RunState.VOID, str(run.state))
+	c.restart(player)
+	await ticks(3)
+	c.on_teleport(player)
+	await place(Vector3(1800, 0, -5))
+	check("course: teleporting out of the start doesn't start the clock", run.state == Course.RunState.IDLE, str(run.state))
+
+	player.restart_handler = Callable()
+	c.queue_free()
+	for n in player.hud.get_parent().get_children():
+		if n is CourseHud:
+			n.queue_free()
+
+
+func test_climb_jump_direction() -> void:
+	# Holding forward into the wall, jump hops up it: no push-off, no turn
+	# (Liam: the auto-turn jerked the camera around while climbing up a building).
+	await reset(Vector3(1900, 0, 0))
+	router.scripted_move = Vector2(0, 1)
+	await seconds(0.12)
+	await tap(A.JUMP)
+	var t := 0.0
+	while player.motor.state != S.WALLCLIMB and t < 1.5:
+		await get_tree().physics_frame
+		t += 1.0 / 120.0
+	check("climb started on the tall wall", player.motor.state == S.WALLCLIMB, player.motor.state_name())
+	await seconds(0.15)
+	var yaw0 := player.yaw
+	jumps_seen.clear()
+	await tap(A.JUMP)
+	await seconds(0.35)
+	check("forward + jump hops up the wall", jumps_seen.has(PlayerMotor.JumpKind.CLIMB_HOP), str(jumps_seen))
+	check("hop doesn't turn the camera", absf(wrapf(player.yaw - yaw0, -PI, PI)) < 0.05, "turned %.2f" % (player.yaw - yaw0))
+	check("hop stays at the wall", player.global_position.z < -2.0, "z %.2f" % player.global_position.z)
+
+	# Neutral + jump still kicks off and turns around.
+	await reset(Vector3(1900, 0, 0))
+	router.scripted_move = Vector2(0, 1)
+	await seconds(0.12)
+	await tap(A.JUMP)
+	t = 0.0
+	while player.motor.state != S.WALLCLIMB and t < 1.5:
+		await get_tree().physics_frame
+		t += 1.0 / 120.0
+	await seconds(0.15)
+	router.scripted_move = Vector2.ZERO
+	jumps_seen.clear()
+	await tap(A.JUMP)
+	await seconds(0.4)
+	check("neutral + jump kicks off the wall", jumps_seen.has(PlayerMotor.JumpKind.CLIMB_KICK), str(jumps_seen))
+	check("kick turns to face away", absf(wrapf(player.yaw - PI, -PI, PI)) < 0.2, "yaw %.2f" % player.yaw)

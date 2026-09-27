@@ -17,7 +17,7 @@ signal grapple_released
 signal grapple_missed
 
 enum State { GROUND, AIR, SLIDE, WALLRUN, WALLCLIMB, MANTLE, GRAPPLE }
-enum JumpKind { GROUND, DOUBLE, WALL_KICK, CLIMB_KICK, SLIDE_HOP }
+enum JumpKind { GROUND, DOUBLE, WALL_KICK, CLIMB_KICK, SLIDE_HOP, CLIMB_HOP }
 
 const STATE_NAMES: Array[String] = ["Ground", "Air", "Slide", "WallRun", "WallClimb", "Mantle", "Grapple"]
 
@@ -367,8 +367,17 @@ func _tick_wallclimb(delta: float) -> void:
 	_block_wall(wall)
 
 	if router.buffered(InputRouter.Action.JUMP, tuning.jump_buffer):
-		# Climb kick: push straight back off the wall and (optionally) turn 180.
 		router.consume(InputRouter.Action.JUMP)
+		if router.move_vector().y > 0.3 and not _wall_behind():
+			# Still pushing into the wall with open air behind: you want up, not
+			# off. Hop up the face (no push-off, no turn); the air mantle grabs the
+			# lip if it's in reach. With a wall behind (a chimney), kick across.
+			var hop := -wall_normal * 1.0
+			player.velocity = Vector3(hop.x, maxf(player.velocity.y, tuning.climb_hop_up), hop.z) + wall.velocity
+			_set_state(State.AIR)
+			jumped.emit(JumpKind.CLIMB_HOP)
+			return
+		# Climb kick: push straight back off the wall and (optionally) turn 180.
 		var out := wall_normal * tuning.climb_kick_out
 		player.velocity = Vector3(out.x, tuning.climb_kick_up, out.z)
 		_wall_cooldown = tuning.wall_reattach_delay
@@ -840,6 +849,13 @@ static func _ensure_away(dir: Vector3, n: Vector3, min_dot: float) -> Vector3:
 	var lateral := dir - n * d
 	lateral = lateral.normalized() if lateral.length() > 0.01 else Vector3.ZERO
 	return (lateral * sqrt(1.0 - min_dot * min_dot) + n * min_dot).normalized()
+
+
+## A wall behind you while climbing (within kick range): a chimney.
+func _wall_behind() -> bool:
+	var from := player.global_position + UP * CHEST_HEIGHT
+	var hit := _ray(from, from + wall_normal * tuning.climb_chimney_reach)
+	return not hit.is_empty() and absf(hit.normal.y) < 0.3
 
 
 func _ray(from: Vector3, to: Vector3) -> Dictionary:

@@ -30,6 +30,10 @@ var _speed_fov: float = 0.0
 var _dip: float = 0.0
 var _dip_vel: float = 0.0
 var _bob_phase: float = 0.0
+## Shared stride clock (radians): one arm-swing cycle = two footfalls. The head
+## bob, the gun and both arms all read this so they never drift apart.
+var stride_phase: float:
+	get: return _bob_phase
 var _bob_weight: float = 0.0
 var _punch: Vector2 = Vector2.ZERO  # visual-only recoil (pitch, yaw) radians
 var _punch_vel: Vector2 = Vector2.ZERO
@@ -157,9 +161,14 @@ func _update_transform(delta: float) -> void:
 	var shake := _trauma * _trauma * 0.012
 	var shake_rot := Vector2(sin(_noise_t * 1.3) * shake, sin(_noise_t * 1.7 + 2.0) * shake)
 
+	# Mantle nod: the view dips toward the ledge and back, so the plants read.
+	var nod := 0.0
+	if state == PlayerMotor.State.MANTLE:
+		nod = -deg_to_rad(t.mantle_camera_nod) * sin(PI * pow(motor.mantle_progress(), 0.7))  # peaks early, as the hands land
+
 	var origin := player.get_global_transform_interpolated().origin
 	var look := Basis(Vector3.UP, player.yaw + _punch.y + shake_rot.y) \
-		* Basis(Vector3.RIGHT, player.pitch + _punch.x + shake_rot.x) \
+		* Basis(Vector3.RIGHT, player.pitch + _punch.x + shake_rot.x + nod) \
 		* Basis(Vector3.BACK, _roll)
 	var base := origin + Vector3.UP * (_eye + _dip)
 	if third_person:
@@ -173,6 +182,9 @@ func _update_transform(delta: float) -> void:
 	else:
 		global_transform = Transform3D(look, base + Basis(Vector3.UP, player.yaw) * bob)
 	if fp_body:
+		# The gun (a camera child) would otherwise update after this, and the
+		# hands would chase last frame's gun pose.
+		fp_body.viewmodel.update(delta)
 		fp_body.sync(delta)
 
 

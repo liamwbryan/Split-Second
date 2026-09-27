@@ -23,6 +23,8 @@ var avatar: RunnerAvatar
 
 var spawn_position: Vector3 = Vector3.ZERO
 var spawn_yaw: float = 0.0
+## Restart (T) handler: a course restarts the whole run; otherwise T respawns.
+var restart_handler: Callable
 
 var _turn_active: bool = false
 var _turn_from: float = 0.0
@@ -103,7 +105,10 @@ func respawn() -> void:
 func _physics_process(delta: float) -> void:
 	router.tick(delta)
 	if router.just_pressed(InputRouter.Action.RESET):
-		respawn()
+		if restart_handler.is_valid():
+			restart_handler.call(self)
+		else:
+			respawn()
 		return
 	motor.physics_step(delta)
 	weapon.physics_step(delta)

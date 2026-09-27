@@ -1,14 +1,20 @@
 class_name Props
 extends RefCounted
-## Procedural rooftop/street props built from primitives, sharing the level
-## surface material. Props that matter for movement get collision; small
-## dressing (antennas, dishes) is visual only.
+## Rooftop/street props. Modeled props (art/blender/rooftop_props.py) are
+## drawn with one MultiMesh per model, built in finalize(), and keep simple box
+## collision; the rest are primitives. Props that matter for movement get
+## collision; small dressing (antennas, dishes) is visual only.
 
 const T := LevelBuilder.Tag
+const AC_SMALL := preload("res://assets/models/prop_ac_small.glb")
+const AC_BIG := preload("res://assets/models/prop_ac_big.glb")
+const VENT := preload("res://assets/models/prop_vent.glb")
+const WATER_TOWER := preload("res://assets/models/prop_water_tower.glb")
 
 var b: LevelBuilder
 var root: Node3D
 var _visual_mat: ShaderMaterial
+var _instances: Dictionary = {}  ## PackedScene -> Array[Transform3D]
 
 
 func _init(builder: LevelBuilder) -> void:
@@ -29,18 +35,17 @@ func parapet(min_corner: Vector3, max_corner: Vector3, height: float = 0.6, thic
 	b.block(Vector3(x1 - thickness, y, z0 + thickness), Vector3(x1, y + height, z1 - thickness), T.DARK)
 
 
-## Rooftop HVAC unit: solid box you can vault or use as cover, with a fan grille.
+## Rooftop HVAC unit: solid box you can vault or use as cover.
 func ac_unit(pos: Vector3, yaw_deg: float = 0.0, big: bool = false) -> void:
 	var size := Vector3(3.2, 1.2, 2.0) if big else Vector3(2.0, 1.1, 1.4)
-	var body := b.box(pos + Vector3.UP * size.y * 0.5, size, T.NEUTRAL, Vector3(0, yaw_deg, 0))
-	var fan := _visual_cylinder(size.z * 0.3, 0.06, Color(0.25, 0.27, 0.3))
-	body.add_child(fan)
-	fan.position = Vector3(0, size.y * 0.5 + 0.03, 0)
+	b.collider(pos + Vector3.UP * size.y * 0.5, size, T.NEUTRAL, Vector3(0, yaw_deg, 0))
+	_place(AC_BIG if big else AC_SMALL, Transform3D(Basis(Vector3.UP, deg_to_rad(yaw_deg)), pos))
 
 
-## Tall ventilation stack (a thin climbable column).
+## Tall ventilation stack (a thin climbable column). The model is 2.4 m tall.
 func vent(pos: Vector3, height: float = 2.4) -> void:
-	b.box(pos + Vector3.UP * height * 0.5, Vector3(0.9, height, 0.9), T.DARK)
+	b.collider(pos + Vector3.UP * height * 0.5, Vector3(0.9, height, 0.9), T.DARK)
+	_place(VENT, Transform3D(Basis.from_scale(Vector3(1.0, height / 2.4, 1.0)), pos))
 
 
 ## Stair bulkhead: the little building on a roof. Good wall-run/mantle block.
@@ -55,8 +60,8 @@ func water_tower(pos: Vector3) -> void:
 	var leg_h := 4.0
 	for x: float in [-1.4, 1.4]:
 		for z: float in [-1.4, 1.4]:
-			b.box(pos + Vector3(x, leg_h * 0.5, z), Vector3(0.25, leg_h, 0.25), T.DARK)
-	b.box(pos + Vector3(0, leg_h + 0.1, 0), Vector3(3.4, 0.2, 3.4), T.DARK)
+			b.collider(pos + Vector3(x, leg_h * 0.5, z), Vector3(0.25, leg_h, 0.25), T.DARK)
+	b.collider(pos + Vector3(0, leg_h + 0.1, 0), Vector3(3.4, 0.2, 3.4), T.DARK)
 	var tank := StaticBody3D.new()
 	tank.collision_layer = 1
 	var cs := CollisionShape3D.new()
@@ -65,12 +70,8 @@ func water_tower(pos: Vector3) -> void:
 	cyl.height = 4.0
 	cs.shape = cyl
 	tank.add_child(cs)
-	var mesh := _visual_cylinder(1.8, 4.0, Color(0.72, 0.62, 0.5))
-	tank.add_child(mesh)
-	var roof := _visual_cone(2.0, 1.2, Color(0.4, 0.34, 0.3))
-	roof.position.y = 2.6
-	tank.add_child(roof)
 	root.add_child(tank)
+	_place(WATER_TOWER, Transform3D(Basis.IDENTITY, pos))
 	tank.global_position = pos + Vector3(0, leg_h + 0.2 + 2.0, 0)
 	b.grapple_point(pos + Vector3(0, leg_h + 0.2 + 4.0 + 1.6, 0))
 
@@ -145,6 +146,34 @@ func skyline(center: Vector3, inner: float, outer: float, count: int, seed_value
 	mmi.material_override = SurfaceMaterials.get_material(LevelBuilder.Kind.FACADE)
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mmi)
+
+
+## Draws every placed model: one MultiMeshInstance3D per model (a draw call
+## per material surface, however many copies). Call once after building.
+func finalize() -> void:
+	for scene: PackedScene in _instances:
+		var xforms: Array = _instances[scene]
+		var src := scene.instantiate()
+		var mi := src if src is MeshInstance3D else src.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+		var local := (mi as Node3D).transform if mi != src else Transform3D.IDENTITY
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mi.mesh
+		mm.instance_count = xforms.size()
+		for i in xforms.size():
+			mm.set_instance_transform(i, (xforms[i] as Transform3D) * local)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "Props_" + scene.resource_path.get_file().get_basename()
+		mmi.multimesh = mm
+		root.add_child(mmi)
+		src.free()
+	_instances.clear()
+
+
+func _place(scene: PackedScene, xform: Transform3D) -> void:
+	if not _instances.has(scene):
+		_instances[scene] = []
+	(_instances[scene] as Array).append(xform)
 
 
 func _mat(color: Color, emission: float = 0.0) -> StandardMaterial3D:

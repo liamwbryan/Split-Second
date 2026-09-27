@@ -72,6 +72,35 @@ bpy.ops.object.mode_set(mode="OBJECT")
 body.name = "FP_Body"
 arm_obj = next(o for o in bpy.data.objects if o.type == "MESH" and o.name != "FP_Body")
 arm_obj.name = "FP_Arms"
+
+
+# Slim the arms around their bones. Seen from first person the shoulder is right
+# beside the camera, so the stock mannequin's chunky upper arm fills the bottom
+# corners; a leaner arm reads as the agent's and leaves the view clear.
+SLIM = {"clavicle": 0.8, "upperarm": 0.75, "lowerarm": 0.88}
+rig = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+arm_groups = {g.index: g.name for g in arm_obj.vertex_groups}
+segments = {}
+for b in rig.data.bones:
+    if b.name.startswith(tuple(SLIM)):
+        head = rig.matrix_world @ b.head_local
+        tail = rig.matrix_world @ b.tail_local
+        segments[b.name] = (head, tail, SLIM[b.name.rsplit("_", 1)[0]])
+to_world = arm_obj.matrix_world
+to_local = to_world.inverted()
+for v in arm_obj.data.vertices:
+    p = to_world @ v.co
+    move = p * 0.0
+    for g in v.groups:
+        seg = segments.get(arm_groups.get(g.group, ""))
+        if seg is None or g.weight <= 0.0:
+            continue
+        head, tail, f = seg
+        axis = tail - head
+        t = max(0.0, min(1.0, (p - head).dot(axis) / axis.length_squared))
+        on_bone = head + axis * t
+        move += (on_bone + (p - on_bone) * f - p) * g.weight
+    v.co = to_local @ (p + move)
 bpy.ops.object.select_all(action="DESELECT")
 for o in bpy.data.objects:
     o.select_set(True)

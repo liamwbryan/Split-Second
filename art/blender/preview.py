@@ -37,6 +37,8 @@ view = [a for a in args if a.startswith("view=")]
 mode = view[0][5:] if view else "full"
 if mode == "head":
     target, dist, lens = Vector((0, 0, 1.66)), 1.3, 60
+elif mode == "tall":
+    target, dist, lens = Vector((0, 0, 4.6)), 15.0, 50
 elif mode == "prop":
     target, dist, lens = Vector((0, 0.25, 0.05)), 1.4, 50
 else:

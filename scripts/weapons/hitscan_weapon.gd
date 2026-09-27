@@ -38,6 +38,7 @@ func setup(p_player: Player, p_rig: CameraRig, p_data: WeaponData) -> void:
 	viewmodel = Viewmodel.new()
 	rig.camera.add_child(viewmodel)
 	viewmodel.setup(player, rig.viewmodel_layer_bit())
+	viewmodel.data = data
 
 
 func physics_step(delta: float) -> void:

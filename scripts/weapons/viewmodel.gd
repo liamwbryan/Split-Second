@@ -1,15 +1,25 @@
 class_name Viewmodel
 extends Node3D
-## Procedural first-person rifle plus its motion: sway from look, bob from
-## running, tilt on wall-runs, drop on landing, kick on fire, lowered while
-## sprinting. Rendered only to its owner's camera via a per-player layer.
+## Procedural first-person gun plus its motion: sway from look, bob from
+## running, tilt on wall-runs, drop on landing, kick on fire. Rendered only to
+## its owner's camera via a per-player layer.
+## Carry (WeaponData.one_hand_hip): SMG style = one hand at the hip, pumping
+## with the right arm while sprinting; `support` (0..1) brings the second hand
+## on for aiming. Rifle style = two hands always.
+## Updated by the camera rig (update()) right before the first-person arms.
 
 const MODEL := preload("res://assets/models/agent_rifle.glb")  # art/blender/rifle.py
 const MODEL_SCALE := 0.9
 ## Positions of the gun's grip (model origin) in camera space.
-const HIP_POS := Vector3(0.16, -0.19, -0.4)
+const HIP_POS := Vector3(0.16, -0.19, -0.4)       ## two hands
+const HIP1_POS := Vector3(0.17, -0.2, -0.36)      ## one hand
 const ADS_POS := Vector3(0.0, -0.132, -0.19)  # puts the sight line (0, 0.147, -0.06) * scale on the view axis
-const SPRINT_POS := Vector3(0.13, -0.24, -0.34)
+const SPRINT_POS := Vector3(0.13, -0.24, -0.34)   ## two hands: rifle port-arms carry
+const SPRINT1_POS := Vector3(0.2, -0.27, -0.3)    ## one hand, mid-swing
+## One-handed sprint pump (camera space): the gun rides the right hand's swing.
+const PUMP_FWD := 0.09
+const PUMP_UP := 0.05
+const PUMP_PITCH := deg_to_rad(14.0)
 
 var player: Player
 var muzzle: Node3D
@@ -17,6 +27,8 @@ var muzzle: Node3D
 var grip_r: Node3D
 var grip_l: Node3D
 var ads_amount: float = 0.0
+var support: float = 1.0          ## 1 = second hand on the gun (aiming / rifle carry)
+var data: WeaponData
 
 var _sway: Vector2 = Vector2.ZERO
 var _last_yaw: float = 0.0
@@ -27,7 +39,6 @@ var _land: float = 0.0
 var _land_vel: float = 0.0
 var _tilt: float = 0.0
 var _sprint: float = 0.0
-var _bob_phase: float = 0.0
 var _pose_pos: Vector3 = Vector3.ZERO  # traversal pose offsets (slide, mantle, vault...)
 var _pose_rot: Vector3 = Vector3.ZERO
 var _flash: MeshInstance3D
@@ -42,6 +53,7 @@ func setup(p_player: Player, layer_bit: int) -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	position = HIP_POS
 	scale = Vector3.ONE * MODEL_SCALE
+	set_process(false)  # the camera rig calls update() in order
 	_build_model()
 
 	_flash = MeshInstance3D.new()
@@ -83,7 +95,7 @@ func kick(strength: float) -> void:
 	_flash_time = 0.035
 
 
-func _process(delta: float) -> void:
+func update(delta: float) -> void:
 	var motor := player.motor
 	var speed := player.horizontal_speed()
 
@@ -115,14 +127,20 @@ func _process(delta: float) -> void:
 		tilt_target = deg_to_rad(10.0)
 	_tilt = lerpf(_tilt, tilt_target * (1.0 - ads_amount), 1.0 - exp(-9.0 * delta))
 
+	# Second hand: on for aiming (or always, with a rifle carry).
+	var two_hands := data == null or not data.one_hand_hip or ads_amount > 0.0
+	support = move_toward(support, 1.0 if two_hands else 0.0, delta / (data.support_time if data else 0.1))
+	var sup := support * support * (3.0 - 2.0 * support)
+
 	var bobbing := motor.state == PlayerMotor.State.GROUND and speed > 1.0
-	if bobbing:
-		_bob_phase += delta * speed * 1.25
+	var phase := player.camera_rig.stride_phase
 	var bob_amt := (0.012 if bobbing else 0.0) * clampf(speed / player.tuning.sprint_speed, 0.0, 1.2) * (1.0 - ads_amount * 0.85)
-	var bob := Vector3(cos(_bob_phase) * bob_amt, -absf(sin(_bob_phase)) * bob_amt, 0.0)
+	var bob := Vector3(cos(phase) * bob_amt, -absf(sin(phase)) * bob_amt, 0.0)
 
 	var ease_ads := ads_amount * ads_amount * (3.0 - 2.0 * ads_amount)
-	var base := HIP_POS.lerp(SPRINT_POS, _sprint).lerp(ADS_POS, ease_ads)
+	var base_two := HIP_POS.lerp(SPRINT_POS, _sprint)
+	var base_one := HIP1_POS.lerp(SPRINT1_POS, _sprint)
+	var base := base_one.lerp(base_two, sup).lerp(ADS_POS, ease_ads)
 
 	# Traversal poses: the gun makes room for the hands (DESIGN: "hands come out").
 	var pose_pos := Vector3.ZERO
@@ -147,14 +165,25 @@ func _process(delta: float) -> void:
 	_pose_pos = _pose_pos.lerp(pose_pos * (1.0 - ease_ads), pose_rate)
 	_pose_rot = _pose_rot.lerp(pose_rot * (1.0 - ease_ads), pose_rate)
 
-	# Sprint stride: the gun swings with the arms instead of floating.
+	# Sprint. Two hands: the rifle swings side to side with the stride. One
+	# hand: the gun rides the right arm's pump (forward and up on the forward
+	# swing, muzzle dipping on the back swing), in phase with the free arm.
 	var stride := _sprint * (1.0 - ease_ads)
-	var swing := Vector3(sin(_bob_phase) * 0.03 * stride, 0.0, 0.0)
-	var swing_rot := Vector3(0.0, sin(_bob_phase) * deg_to_rad(4.0) * stride, cos(_bob_phase * 2.0) * deg_to_rad(3.0) * stride)
+	var s := sin(phase)
+	var swing_two := Vector3(s * 0.03, 0.0, 0.0)
+	var swing_one := Vector3(0.0, PUMP_UP * s, -PUMP_FWD * s)
+	var swing := swing_one.lerp(swing_two, sup) * stride
+	var rot_two := Vector3(0.0, s * deg_to_rad(4.0), cos(phase * 2.0) * deg_to_rad(3.0))
+	var rot_one := Vector3(PUMP_PITCH * s, 0.0, 0.0)
+	var swing_rot := rot_one.lerp(rot_two, sup) * stride
+	# Carry angle: rifle port-arms (turned in) vs one hand (muzzle down, canted).
+	var carry_two := Vector3(deg_to_rad(-8.0), deg_to_rad(28.0), 0.0)
+	var carry_one := Vector3(deg_to_rad(-12.0), deg_to_rad(4.0), deg_to_rad(-4.0))
+	var carry := carry_one.lerp(carry_two, sup) * _sprint
 
 	position = base + bob + swing + _pose_pos + Vector3(-_sway.x * 0.35, _sway.y * 0.25 + _land, _kick * 0.06)
 	var toward_center := deg_to_rad(2.5) * (1.0 - ease_ads)  # hip: muzzle angled slightly toward the crosshair
-	rotation = Vector3(_kick * 0.35 + _sprint * deg_to_rad(-8.0), toward_center + _sway.x * 0.8 + _sprint * deg_to_rad(28.0), _tilt + _sway.x * 0.4) + swing_rot + _pose_rot
+	rotation = Vector3(_kick * 0.35, toward_center + _sway.x * 0.8, _tilt + _sway.x * 0.4) + carry + swing_rot + _pose_rot
 
 	if _flash_time > 0.0:
 		_flash_time -= delta

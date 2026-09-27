@@ -42,3 +42,10 @@ extends Resource
 @export_group("ADS")
 @export_range(0.03, 0.6, 0.01) var ads_time: float = 0.13
 @export_range(0.4, 1.0, 0.01) var ads_fov_mult: float = 0.8
+
+@export_group("Handling")
+## SMG-style carry: one hand on the gun at the hip, the other free (it swings
+## with your stride and reaches for walls/ledges); both hands when aiming.
+## Off = rifle carry, both hands on the gun all the time.
+@export var one_hand_hip: bool = true
+@export_range(0.03, 0.4, 0.01) var support_time: float = 0.1  ## support hand on/off the handguard (s)
