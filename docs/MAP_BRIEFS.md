@@ -100,7 +100,10 @@ Each brief gives the fantasy, the **scale hook**, the layout, set pieces with st
 
 ---
 
-### 5.1 SPIRAL: sky garage on the side of an arcology (build first: existing tech only)
+### 5.1 SPIRAL: sky garage on the side of an arcology — ✅ BUILT (2026-09-26, `scripts/maps/spiral.gd`)
+
+> **As built** (differences from the brief below): 76 × 76 m, seven decks + roof, 36 × 36 m square void. The Express is a true **helix** (`LevelBuilder.helix_ramp`, a seamless trimesh) circling the void at 26° (12 m per quarter turn), because box ramps round a curve leave 10–25 cm lips. It touches a deck edge every quarter turn (roof E, deck 6 S, deck 4 W, deck 2 N) and a full slide from the roof takes 4.8 s at the 18 m/s cap. Deck 1 is at y = 0 (the city floor is drawn 300 m below) so the existing fall reset still works. The traffic-lane jump goes to a floating **traffic ring** 20 m off the east face rather than the 400 m spire (the spire is the hero landmark). Additions: a catwalk over the void whose west end drops you onto the Express at deck 4 (the course shortcut), a central RUN chimney, RUN corner pillars with grapple beacons 2.5 m above decks 3/4/6/7, pit antigrav pads to deck 3, a service lift, and cover bands on every deck. `tests/spiral_tests.gd` checks every pad, the Express, the drop-in, the outside car and two corner grapples.
+
 
 **Fantasy:** a spiralling parking structure for flying cars, bolted to the flank of a 900 m arcology at night. Hover-car bays, light-strip lane markings, dock doors opening onto empty sky.
 
@@ -297,11 +300,11 @@ This keeps all the tuned routes while the map feels ten times bigger. It's a dec
 
 ## 7. Design questions for Liam (ask, don't guess)
 
-1. **Build order:** this file recommends Spiral, Pendulum Hall, then Spillway. Does Liam want a different first map, or the Rooftops scale pass (§5.9) first?
-2. **Trains:** what happens when a train hits a player (push, kill, pass through), and should landing on an opposing train be smoothed?
-3. **Halfpipe:** if a diagonal carve up a bank doesn't reliably wall-run, is a movement change allowed? That touches the movement kit and its tests.
-4. **Motion comfort:** are Neon Canyon's fast tilt flips and Stormfront's rolling deck OK, or should there be comfort options?
-5. **Launch speeds:** the Pendulum Hall slingshot reaches about 30 m/s. Is that fun-fast or too fast to land?
+1. ~~**Build order**~~ — **answered 2026-09-26:** Spiral first (done), then Pendulum Hall, then Spillway.
+2. **Trains** — **answered 2026-09-26:** a train hitting a player **knocks them back and flings them** (no damage). Landing smoothing on opposing trains was *not* pre-approved: ask again when Crosstrack is built.
+3. **Halfpipe** — *not* pre-approved (2026-09-26): if the carve doesn't reliably wall-run, ask Liam before changing movement code.
+4. **Motion comfort:** are Neon Canyon's fast tilt flips and Stormfront's rolling deck OK, or should there be comfort options? *(Still open. Default until he answers: build those maps with a comfort toggle (less camera tilt, a "calm skies" deck roll) in Settings.)*
+5. **Launch speeds** — **answered 2026-09-26:** keep the full ~30 m/s Pendulum Hall slingshot.
 
 ## 8. Later ideas (not scheduled)
 
